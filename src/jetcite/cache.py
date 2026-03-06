@@ -10,6 +10,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+import httpx
+
 from jetcite.models import Citation, CitationType, Source
 
 # Staleness thresholds in days — informational only, not auto-refetch
@@ -164,3 +166,51 @@ def add_local_source(citation: Citation, path: Path) -> None:
     if any(s.name == "local" for s in citation.sources):
         return
     citation.sources.insert(0, Source(name="local", url=local_url))
+
+
+def fetch_and_cache(
+    citation: Citation,
+    refs_dir: Path | None = None,
+    timeout: float = 10.0,
+) -> Path | None:
+    """Fetch citation content from its primary web source and cache locally.
+
+    Downloads the content at the citation's first non-local source URL,
+    writes it to the cache, and adds a local Source to the citation.
+
+    Returns the cached file path, or None if fetching fails or the
+    citation can't be mapped to a cache path.
+    """
+    if refs_dir is None:
+        refs_dir = DEFAULT_REFS_DIR
+
+    # Don't fetch if already cached
+    existing = resolve_local(citation, refs_dir)
+    if existing is not None:
+        add_local_source(citation, existing)
+        return existing
+
+    # Find a web source URL
+    source_url = None
+    for s in citation.sources:
+        if s.name != "local":
+            source_url = s.url
+            break
+    if source_url is None:
+        return None
+
+    # Fetch
+    try:
+        resp = httpx.get(source_url, follow_redirects=True, timeout=timeout)
+        resp.raise_for_status()
+    except (httpx.HTTPError, httpx.TimeoutException):
+        return None
+
+    content = resp.text
+    content_type = resp.headers.get("content-type", "text/html").split(";")[0].strip()
+
+    path = cache_content(citation, content, refs_dir, source_url=source_url,
+                         content_type=content_type)
+    if path is not None:
+        add_local_source(citation, path)
+    return path

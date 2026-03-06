@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sys
 import webbrowser
+from pathlib import Path
 
 import click
 
@@ -64,6 +65,10 @@ def _format_json(citations: list[Citation]) -> str:
 @click.option("--open", "open_url", is_flag=True, help="Open the first URL in browser.")
 @click.option("--from-clipboard", is_flag=True, help="Read citation from clipboard.")
 @click.option("--all-sources", is_flag=True, help="Show all available URLs.")
+@click.option("--refs-dir", type=click.Path(exists=False), default=None,
+              help="Check local reference cache at this directory.")
+@click.option("--fetch", "do_fetch", is_flag=True,
+              help="Fetch citation content from web and cache locally (requires --refs-dir).")
 def main(
     citation: str | None,
     scan_file: str | None,
@@ -72,8 +77,16 @@ def main(
     open_url: bool,
     from_clipboard: bool,
     all_sources: bool,
+    refs_dir: str | None,
+    do_fetch: bool,
 ):
     """Parse legal citations and generate URLs to official sources."""
+    refs_path = Path(refs_dir).expanduser() if refs_dir else None
+
+    if do_fetch and refs_path is None:
+        click.echo("Error: --fetch requires --refs-dir", err=True)
+        sys.exit(1)
+
     # Determine input
     if scan_file:
         if scan_file == "-":
@@ -81,7 +94,7 @@ def main(
         else:
             with open(scan_file) as f:
                 text = f.read()
-        citations = scan_text(text)
+        citations = scan_text(text, refs_dir=refs_path)
         if fmt is None:
             fmt = "table"
     elif from_clipboard:
@@ -106,7 +119,7 @@ def main(
                 sys.exit(1)
 
         if citation:
-            result = lookup(citation)
+            result = lookup(citation, refs_dir=refs_path)
             if result:
                 citations = [result]
             else:
@@ -122,6 +135,14 @@ def main(
     # Verify if requested
     if verify:
         verify_citations_sync(citations, rate_limit=1.0)
+
+    # Fetch and cache if requested
+    if do_fetch and refs_path:
+        from jetcite.cache import fetch_and_cache
+        for cite in citations:
+            cached = fetch_and_cache(cite, refs_dir=refs_path)
+            if cached:
+                click.echo(f"Cached: {cite.normalized} -> {cached}", err=True)
 
     # Open URL
     if open_url and citations and citations[0].sources:

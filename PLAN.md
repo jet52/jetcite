@@ -474,25 +474,27 @@ When a new state module is added, the implementer should research:
    - U.S. Const. amend. not capturing section (e.g., amend. XIV, § 1)
    - NDAC regex capturing trailing sentence periods
 
-### Phase 2: Cache Integration
+### Phase 2: Cache Integration — COMPLETE (v0.5.0)
 
 Wire the cache module into lookup/scan_text and CLI.
 
-1. **Integration with lookup/scan_text**
-   - Add optional `refs_dir` parameter to `lookup()` and `scan_text()`
-   - When set, check local cache first; add `Source(name="local",
-     url="file:///...")` at top of sources list if found
+1. ~~**Integration with lookup/scan_text**~~
+   - ~~Add optional `refs_dir` parameter to `lookup()` and `scan_text()`~~
+   - ~~When set, check local cache first; add `Source(name="local",
+     url="file:///...")` at top of sources list if found~~
    - `search_hint` field on Citation for finding content within cached files
+     (deferred to Phase 4)
 
-2. **fetch_and_cache** — download from primary web source, cache locally,
+2. ~~**fetch_and_cache**~~ — download from primary web source, cache locally,
    return content
 
-3. **CLI integration**
-   - `jetcite --refs-dir ~/refs "2024 ND 156"` — check local first
-   - `jetcite --scan doc.md --refs-dir ~/refs` — report cache hits vs misses
-   - `jetcite --fetch "2024 ND 156" --refs-dir ~/refs` — fetch and cache
+3. ~~**CLI integration**~~
+   - ~~`jetcite --refs-dir ~/refs "2024 ND 156"` — check local first~~
+   - ~~`jetcite --scan doc.md --refs-dir ~/refs` — cache hits get local source~~
+   - ~~`jetcite --fetch "2024 ND 156" --refs-dir ~/refs` — fetch and cache~~
 
-4. **Tests** for fetch_and_cache, CLI --refs-dir flag
+4. ~~**Tests**~~ for fetch_and_cache, CLI --refs-dir flag, lookup/scan_text
+   with refs_dir (8 new tests, 169 total)
 
 ### Phase 3: Expand State Coverage
 

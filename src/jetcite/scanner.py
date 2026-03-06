@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from jetcite.models import Citation, CitationType
 from jetcite.patterns import get_matchers
 
@@ -84,11 +86,24 @@ def _looks_like_pinpoint_or_empty(s: str) -> bool:
     ))
 
 
-def scan_text(text: str) -> list[Citation]:
+def _apply_cache(citations: list[Citation], refs_dir: Path) -> None:
+    """Check the local cache for each citation and add local sources."""
+    from jetcite.cache import add_local_source, resolve_local
+
+    for cite in citations:
+        local_path = resolve_local(cite, refs_dir)
+        if local_path is not None:
+            add_local_source(cite, local_path)
+
+
+def scan_text(text: str, refs_dir: Path | None = None) -> list[Citation]:
     """Scan text for all citations, deduplicated by normalized form.
 
     Returns citations in order of first appearance, with parallel
     citations detected and linked.
+
+    If refs_dir is provided, checks the local cache and adds a local
+    Source at the front of each citation's sources list when found.
     """
     all_citations: list[Citation] = []
     seen: set[str] = set()
@@ -106,14 +121,24 @@ def scan_text(text: str) -> list[Citation]:
     # Detect parallel citations
     _detect_parallel_citations(all_citations, text)
 
+    # Check local cache
+    if refs_dir is not None:
+        _apply_cache(all_citations, refs_dir)
+
     return all_citations
 
 
-def lookup(text: str) -> Citation | None:
-    """Look up a single citation string. Returns the first match."""
+def lookup(text: str, refs_dir: Path | None = None) -> Citation | None:
+    """Look up a single citation string. Returns the first match.
+
+    If refs_dir is provided, checks the local cache and adds a local
+    Source at the front of the citation's sources list when found.
+    """
     matchers = get_matchers()
     for matcher in matchers:
         result = matcher.find_first(text)
         if result:
+            if refs_dir is not None:
+                _apply_cache([result], refs_dir)
             return result
     return None

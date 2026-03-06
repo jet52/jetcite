@@ -5,17 +5,20 @@ All tests use pytest's tmp_path fixture — nothing touches ~/refs/.
 
 import json
 from pathlib import Path
+from unittest.mock import patch, MagicMock
 
 import pytest
 
 from jetcite.cache import (
     add_local_source,
     cache_content,
+    fetch_and_cache,
     is_stale,
     read_meta,
     resolve_local,
 )
 from jetcite.models import Citation, CitationType, Source
+from jetcite.scanner import lookup, scan_text
 
 
 # ── Helpers ──────────────────────────────────────────────────────
@@ -280,3 +283,112 @@ def test_add_local_source_no_duplicate(tmp_path):
     add_local_source(cite, path)
     local_sources = [s for s in cite.sources if s.name == "local"]
     assert len(local_sources) == 1
+
+
+# ── fetch_and_cache ────────────────────────────────────────────
+
+
+def test_fetch_and_cache_downloads(tmp_path):
+    """fetch_and_cache should download content and write to cache."""
+    cite = _nd_opinion()
+
+    mock_resp = MagicMock()
+    mock_resp.text = "# 2024 ND 156\nFetched opinion."
+    mock_resp.headers = {"content-type": "text/html; charset=utf-8"}
+    mock_resp.raise_for_status = MagicMock()
+
+    with patch("jetcite.cache.httpx.get", return_value=mock_resp) as mock_get:
+        path = fetch_and_cache(cite, refs_dir=tmp_path)
+
+    assert path is not None
+    assert path.is_file()
+    assert path.read_text() == "# 2024 ND 156\nFetched opinion."
+    mock_get.assert_called_once()
+
+    # Should have added a local source
+    assert cite.sources[0].name == "local"
+
+
+def test_fetch_and_cache_skips_if_cached(tmp_path):
+    """fetch_and_cache should not re-download if already cached."""
+    cite = _nd_opinion()
+    cache_content(cite, "already cached", tmp_path)
+
+    with patch("jetcite.cache.httpx.get") as mock_get:
+        path = fetch_and_cache(cite, refs_dir=tmp_path)
+
+    assert path is not None
+    assert path.read_text() == "already cached"
+    mock_get.assert_not_called()
+
+
+def test_fetch_and_cache_http_error(tmp_path):
+    """fetch_and_cache should return None on HTTP error."""
+    import httpx
+    cite = _nd_opinion()
+
+    with patch("jetcite.cache.httpx.get", side_effect=httpx.HTTPStatusError(
+            "404", request=MagicMock(), response=MagicMock())):
+        path = fetch_and_cache(cite, refs_dir=tmp_path)
+
+    assert path is None
+
+
+def test_fetch_and_cache_no_sources(tmp_path):
+    """fetch_and_cache should return None if citation has no web sources."""
+    cite = Citation(
+        raw_text="unknown",
+        cite_type=CitationType.CASE,
+        jurisdiction="us",
+        normalized="unknown",
+        components={},
+        sources=[],
+    )
+    path = fetch_and_cache(cite, refs_dir=tmp_path)
+    assert path is None
+
+
+# ── lookup/scan_text with refs_dir ─────────────────────────────
+
+
+def test_lookup_with_refs_dir(tmp_path):
+    """lookup() with refs_dir adds local source when cached."""
+    # Pre-cache a known citation
+    cached_path = tmp_path / "opin/markdown/2024/2024ND156.md"
+    cached_path.parent.mkdir(parents=True)
+    cached_path.write_text("cached opinion")
+
+    result = lookup("2024 ND 156", refs_dir=tmp_path)
+    assert result is not None
+    assert result.sources[0].name == "local"
+    assert result.sources[0].url.startswith("file://")
+
+
+def test_lookup_without_refs_dir():
+    """lookup() without refs_dir should work as before (no local source)."""
+    result = lookup("2024 ND 156")
+    assert result is not None
+    assert all(s.name != "local" for s in result.sources)
+
+
+def test_scan_text_with_refs_dir(tmp_path):
+    """scan_text() with refs_dir adds local sources for cached citations."""
+    # Pre-cache
+    cached_path = tmp_path / "opin/markdown/2024/2024ND156.md"
+    cached_path.parent.mkdir(parents=True)
+    cached_path.write_text("cached opinion")
+
+    text = "The court decided in 2024 ND 156 that the statute was valid."
+    results = scan_text(text, refs_dir=tmp_path)
+    nd_cite = [c for c in results if c.normalized == "2024 ND 156"]
+    assert len(nd_cite) == 1
+    assert nd_cite[0].sources[0].name == "local"
+
+
+def test_scan_text_refs_dir_miss(tmp_path):
+    """scan_text() with refs_dir but no cached file — no local source."""
+    text = "The court decided in 2024 ND 156 that the statute was valid."
+    results = scan_text(text, refs_dir=tmp_path)
+    nd_cite = [c for c in results if c.normalized == "2024 ND 156"]
+    assert len(nd_cite) == 1
+    assert all(s.name != "local" for s in nd_cite[0].sources)
