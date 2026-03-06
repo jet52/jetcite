@@ -25,6 +25,9 @@ testpaths = ["tests"]
 line-length = 99
 
 [project.optional-dependencies]
+clipboard = [
+    "pyperclip>=1.8",
+]
 dev = [
     "pytest>=8.0",
     "ruff>=0.4",

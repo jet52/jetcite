@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 import webbrowser
 
@@ -87,10 +86,14 @@ def main(
             fmt = "table"
     elif from_clipboard:
         try:
-            result = subprocess.run(["pbpaste"], capture_output=True, text=True, check=True)
-            citation = result.stdout.strip()
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            click.echo("Error: could not read from clipboard.", err=True)
+            import pyperclip
+            citation = pyperclip.paste().strip()
+        except ImportError:
+            click.echo("Error: install pyperclip for clipboard support: pip install pyperclip",
+                        err=True)
+            sys.exit(1)
+        except pyperclip.PyperclipException as e:
+            click.echo(f"Error: could not read from clipboard: {e}", err=True)
             sys.exit(1)
 
     if not scan_file:
