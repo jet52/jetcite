@@ -20,7 +20,7 @@ _RULE_SETS = {
 _FED_RULE = re.compile(
     r'Fed[\s.]*R[\s.]*'
     r'(Civ|Crim|Evid|App|Bankr)(?:il|inal|ence|ellate|ruptcy)?[\s.]*'
-    r'P(?:roc)?[\s.]*'
+    r'(?:P(?:roc)?[\s.]*)?'
     r'(\d+)'
     r'((?:\([^)]+\))*)',  # optional subsection like (b)(6)
     re.IGNORECASE,

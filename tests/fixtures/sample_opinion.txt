@@ -1,0 +1,86 @@
+Filed: March 6, 2026
+                    IN THE SUPREME COURT
+                    STATE OF NORTH DAKOTA
+
+                        2026 ND 42
+
+State of North Dakota,                   Plaintiff and Appellee
+     v.
+John A. Smith,                           Defendant and Appellant
+
+                        No. 20250123
+
+Appeal from the District Court of Burleigh County, South Central
+Judicial District, the Honorable Jane Doe, Judge.
+
+OPINION OF THE COURT
+
+VandeWalle, Chief Justice.
+
+[¶1] John Smith appeals from a criminal judgment entered after a jury
+found him guilty of possession of a controlled substance in violation of
+N.D.C.C. § 19-03.1-23. Smith argues the district court erred by denying
+his motion to suppress evidence. We affirm.
+
+                              I
+
+[¶2] On August 15, 2025, Officer Brown stopped Smith's vehicle for a
+broken taillight. During the stop, Officer Brown observed drug
+paraphernalia in plain view. See State v. Nguyen, 2013 ND 252, ¶ 8,
+841 N.W.2d 676. Officer Brown conducted a search of the vehicle and
+discovered methamphetamine.
+
+[¶3] Smith moved to suppress the evidence, arguing the stop was
+pretextual. The district court denied the motion, finding the stop was
+justified under N.D.C.C. § 39-06.1-06 and N.D.R.Crim.P. 12.
+
+                              II
+
+[¶4] We review a district court's decision on a motion to suppress by
+deferring to the district court's findings of fact and reviewing questions
+of law de novo. State v. Helm, 2022 ND 192, ¶ 5, 982 N.W.2d 274.
+
+[¶5] Under the Fourth Amendment to the United States Constitution, U.S.
+Const. amend. IV, and article I, section 8 of the North Dakota
+Constitution, N.D. Const. art. I, § 8, individuals are protected from
+unreasonable searches and seizures. See Terry v. Ohio, 392 U.S. 1, 88
+S. Ct. 1868 (1968).
+
+[¶6] A traffic stop is a seizure under the Fourth Amendment. State v.
+Torkelsen, 2019 ND 155, ¶ 7, 930 N.W.2d 611. An officer may conduct a
+traffic stop when the officer has a reasonable and articulable suspicion
+that the driver has committed a traffic violation. Id. at ¶ 8. The
+subjective intentions of the officer do not matter if the stop is
+objectively justified. Whren v. United States, 517 U.S. 806, 813, 116
+S. Ct. 1769, 1774 (1996).
+
+[¶7] Here, Officer Brown observed a broken taillight in violation of
+N.D.C.C. § 39-21-19. This provided an objectively reasonable basis for
+the stop. See City of Fargo v. Salsman, 2011 ND 194, ¶ 10, 804 N.W.2d
+43.
+
+[¶8] Smith relies on State v. Gregg, 2000 ND 154, ¶ 15, 615 N.W.2d
+515, for the proposition that pretextual stops violate the North Dakota
+Constitution even when objectively justified. However, this Court
+subsequently clarified in State v. Torkelsen, 2019 ND 155, ¶ 12, 930
+N.W.2d 611, that we follow the federal standard articulated in Whren.
+
+[¶9] Smith also argues the search exceeded the scope of the stop. Under
+the plain view doctrine, an officer who is lawfully present may seize
+contraband in plain view. State v. Reis, 2005 ND 206, ¶ 14, 707 N.W.2d
+61. This principle is well established under both 42 U.S.C. § 1983
+jurisprudence and N.D. Const. art. I, § 8.
+
+[¶10] The district court found Officer Brown was lawfully present and
+observed the drug paraphernalia in plain view. These findings are
+supported by the record and are not clearly erroneous. N.D.R.Ev. 103.
+
+                             III
+
+[¶11] The judgment is affirmed.
+
+[¶12] Gerald VandeWalle, C.J.
+       Daniel J. Crothers
+       Lisa Fair McEvers
+       Jerod E. Tufte
+       Douglas A. Bahr

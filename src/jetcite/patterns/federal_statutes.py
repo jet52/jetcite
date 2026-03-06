@@ -18,7 +18,7 @@ _USC = re.compile(
 
 # 29 C.F.R. § 1910.1200
 _CFR = re.compile(
-    r'(\d+)\s*C[\s.]*F[\s.]*R(?:eg)?[,.\s]*(?:§§?\s*|[Ss]ec(?:tion)?\.?\s+)?([.\d]+)'
+    r'(\d+)\s*C[\s.]*F[\s.]*R(?:eg)?[,.\s]*(?:§§?\s*|[Ss]ec(?:tion)?\.?\s+)?(\d+(?:\.\d+)*)'
     r'((?:\([^)]+\))*)',  # optional subsections
     re.IGNORECASE,
 )

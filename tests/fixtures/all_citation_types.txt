@@ -1,0 +1,138 @@
+This document contains examples of every citation type supported by jetcite,
+including forgiving variants and edge cases.
+
+== U.S. CONSTITUTION ==
+
+The First Amendment protects free speech. U.S. Const. amend. I. The Due
+Process Clause, U.S. Const. amend. XIV, § 1, applies to the states. See
+also Article III of the United States Constitution (judicial power).
+The Establishment Clause is found at U.S. Const. amend. I. The Supremacy
+Clause appears at U.S. Const. art. VI, § 2. Amendment X to the United
+States Constitution reserves powers to the states.
+
+== ND CONSTITUTION ==
+
+The right to bear arms is protected by N.D. Const. art. I, § 20. See
+also Article XI, section 6 of the North Dakota Constitution (legislative
+authority). The provision at ND Const. art. I, § 12 guarantees due process.
+
+== FEDERAL STATUTES ==
+
+Section 1983 of Title 42, cited as 42 U.S.C. § 1983, creates a private
+right of action. See also 28 U.S.C. § 1331 (federal question jurisdiction)
+and 42 USC § 1988 (attorney fees). The range provision at 42 U.S.C.
+§§ 1983-1985 covers related claims. Subsections matter: 18 U.S.C.
+§ 922(g)(1) restricts firearm possession.
+
+== CODE OF FEDERAL REGULATIONS ==
+
+OSHA standards appear at 29 C.F.R. § 1910.1200. Environmental regulations
+are found at 40 CFR 122.41. The flexible form 29 CFR § 1910.1200(a)(2) is
+also recognized.
+
+== FEDERAL RULES ==
+
+Summary judgment is governed by Fed. R. Civ. P. 56. A motion to dismiss
+for failure to state a claim is brought under Fed. R. Civ. P. 12(b)(6),
+sometimes abbreviated FRCP 12(b)(6). The hearsay rule is Fed. R. Evid.
+801. Appellate briefs must comply with Fed. R. App. P. 28. Criminal
+defendants have rights under Fed. R. Crim. P. 29. Bankruptcy matters are
+governed by Fed. R. Bankr. P. 7001. The abbreviation FRE 403 excludes
+prejudicial evidence.
+
+== NDCC (NORTH DAKOTA CENTURY CODE) ==
+
+The rules of construction appear at N.D.C.C. § 1-02-13. See also
+NDCC § 12.1-32-01 (sentencing guidelines) and section 14-02-05, N.D.C.C.
+(marriage requirements). Chapter references like NDCC ch. 14-02 point to
+an entire chapter. Decimal titles are common: N.D.C.C. § 12.1-32-01.1
+includes subsection decimals.
+
+== NDAC (NORTH DAKOTA ADMINISTRATIVE CODE) ==
+
+Administrative rules appear at N.D.A.C. § 43-02-05-01. Chapter references
+use N.D.A.C. ch. 43-02-05. The reverse form 43-02-05-01, N.D. Admin.
+Code is also recognized.
+
+== ND COURT RULES ==
+
+Civil procedure: N.D.R.Civ.P. Rule 56 (summary judgment).
+Criminal procedure: N.D.R.Crim.P. 29 (motion for judgment of acquittal).
+Appellate procedure: N.D.R.App.P. 28 (briefs).
+Evidence: N.D.R.Ev. 803 (hearsay exceptions), Rule 403, N.D.R.Ev.
+Rules of court: N.D.R.Ct. 8.3.1 (three-part) and N.D.R.Ct. 11.10 (two-part).
+Supreme Court admin: N.D. Sup. Ct. Admin. R. 1.2 and N.D. Sup. Ct. Admin. R. 5.
+Professional conduct: N.D.R. Prof. Conduct 1.1.
+Lawyer discipline: N.D.R. Lawyer Discipl. 3.2.
+Judicial conduct: N.D. Code Jud. Conduct 2.3 and Canon 1 : Rule 2.3, N.D. Code Jud. Conduct.
+Juvenile procedure: N.D.R. Juv. P. 5.1.
+Continuing legal ed: N.D.R. Continuing Legal Ed. 3.
+Admission to practice: N.D. Admission to Practice R. 2.1 and N.D. Admission to Practice R. 4.
+Lawyer sanctions: N.D. Stds. Imposing Lawyer Sanctions 1.
+Local rules: Local Rule 100-1.
+Procedural rules: N.D.R. Proc. R. 5.
+Local court: N.D.R. Local Ct. P.R. 3.
+Judicial conduct commission: N.D.R. Jud. Conduct Commission 2.5 and N.D.R. Jud. Conduct Commission 7.
+
+== MEDIUM-NEUTRAL STATE CITATIONS ==
+
+North Dakota: 2024 ND 156, ¶ 12 (with pinpoint).
+Ohio: 2018-Ohio-3237.
+New Mexico: 2009-NMSC-006 and 2009-NMCA-123.
+Illinois: 2011 IL 102345.
+Colorado: 2019 CO 44.
+Maine: 2011 ME 24.
+Montana: 1998 MT 12.
+South Dakota: 2013 S.D. 54.
+Utah: 1999 UT 16.
+Vermont: 2001 VT 1.
+Wisconsin: 2000 WI 14.
+Wyoming: 2001 WY 12.
+Oklahoma: 2006 OK 24.
+Arkansas: 2017 Ark. App. 605.
+North Carolina: 2021-NCSC-57.
+Pennsylvania: 1999 PA Super 1.
+Puerto Rico: 2015 TSPR 148.
+
+== REGIONAL REPORTERS ==
+
+Northwest: 585 N.W.2d 123 and 993 N.W.3d 374 and 100 N.W. 500.
+Atlantic: 200 A.3d 400 and 150 A.2d 300.
+Northeast: 175 N.E.3d 250.
+Southeast: 300 S.E.2d 100.
+Southern: 400 So. 3d 200 and 250 So. 2d 150.
+Southwest: 500 S.W.3d 300.
+Pacific: 150 P.3d 200.
+Malformed: 585 NW2d 123 (no periods).
+
+== STATE-SPECIFIC REPORTERS ==
+
+North Dakota Reports: 50 N.D. 123 (historical, vols 1-79).
+California: 50 Cal. 4th 300 and 75 Cal. Rptr. 3d 200.
+New York: 35 N.Y.3d 100 and 80 N.Y.S.3d 50.
+Ohio: 160 Ohio St. 3d 200.
+Illinois: 200 Ill. 2d 100 and 150 Ill. Dec. 50.
+Washington: 180 Wash. 2d 300 and 90 Wash. App. 2d 100.
+Other states: 200 Conn. 300 and 150 Ga. 200.
+
+== FEDERAL CASE REPORTERS ==
+
+U.S. Reports: 505 U.S. 377 (via Justia).
+Supreme Court Reporter: 140 S. Ct. 1731.
+Federal Reporter: 400 F.3d 500 and 50 F.4th 100 and 200 F.2d 300.
+Federal Supplement: 500 F. Supp. 3d 100 and 300 F. Supp. 2d 200.
+Lawyers' Edition: 120 L. Ed. 2d 500.
+Bankruptcy Reporter: 300 B.R. 50.
+Federal Rules Decisions: 200 F.R.D. 100.
+Federal Claims: 100 Fed. Cl. 50.
+Military Justice: 75 M.J. 200.
+Veterans Appeals: 30 Vet. App. 100.
+Tax Court: 150 T.C. 50.
+Federal Appendix: 600 F. App'x 100.
+
+== PARALLEL CITATIONS ==
+
+Modern ND: 2024 ND 156, 10 N.W.3d 500.
+Older ND: 585 N.W.2d 123, 2000 ND 45.
+Historical ND: 50 N.D. 123, 195 N.W. 500.
+With pinpoint: 2020 ND 100, ¶ 15, 950 N.W.2d 200.

@@ -27,7 +27,8 @@ _US_CONST_ART_OF = re.compile(
 # U.S. Const. amend. XIV
 _US_CONST_AMEND = re.compile(
     r'U(?:nited)?[\s.]*S(?:tates)?[\s.]*Const(?:itution)?[.\s]*'
-    r'(?:amend\.|[Aa]mendment)\s*([IVX]+)',
+    r'(?:amend\.|[Aa]mendment)\s*([IVX]+)'
+    r'(?:[,\s]*(?:§|[Ss]ec(?:tion)?\.?)\s*(\d+))?',
     re.IGNORECASE,
 )
 
@@ -71,12 +72,18 @@ class USConstitutionMatcher(BaseMatcher):
 
         for m in _US_CONST_AMEND.finditer(text):
             amendment = m.group(1)
+            section = m.group(2)
+            normalized = f"U.S. Const. amend. {amendment.upper()}"
+            components = {"amendment": amendment.upper()}
+            if section:
+                normalized += f", § {section}"
+                components["section"] = section
             results.append(Citation(
                 raw_text=m.group(0),
                 cite_type=CitationType.CONSTITUTION,
                 jurisdiction="us",
-                normalized=f"U.S. Const. amend. {amendment.upper()}",
-                components={"amendment": amendment.upper()},
+                normalized=normalized,
+                components=components,
                 sources=[Source("constitutioncenter",
                                 us_constitution_amendment_url(amendment))],
                 position=m.start(),
