@@ -52,25 +52,7 @@ def _format_table(citations: list[Citation], all_sources: bool = False) -> str:
 
 def _format_json(citations: list[Citation]) -> str:
     """Format citations as JSON."""
-    data = []
-    for cite in citations:
-        entry = {
-            "raw_text": cite.raw_text,
-            "cite_type": cite.cite_type.value,
-            "jurisdiction": cite.jurisdiction,
-            "normalized": cite.normalized,
-        }
-        if cite.pinpoint:
-            entry["pinpoint"] = cite.pinpoint
-        if cite.parallel_cites:
-            entry["parallel_cites"] = cite.parallel_cites
-        entry["sources"] = [
-            {"name": s.name, "url": s.url}
-            | ({"verified": s.verified} if s.verified is not None else {})
-            for s in cite.sources
-        ]
-        data.append(entry)
-    return json.dumps(data, indent=2)
+    return json.dumps([c.to_dict() for c in citations], indent=2)
 
 
 @click.command()
