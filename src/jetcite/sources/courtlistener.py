@@ -1,4 +1,15 @@
-"""CourtListener URL generation for case citations."""
+"""CourtListener URL generation for case citations.
+
+The /c/ redirect URLs are lightweight browser-facing links that resolve to
+the opinion page. For programmatic verification or bulk lookups,
+CourtListener's Citation Lookup API is preferred:
+
+    POST https://www.courtlistener.com/api/rest/v4/citation-lookup/
+    (requires auth token, 60 citations/min, 250 per request)
+
+We generate /c/ URLs for display and avoid HEAD-requesting them in verify
+mode when an alternative authoritative source exists.
+"""
 
 from urllib.parse import quote
 

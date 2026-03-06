@@ -22,18 +22,42 @@ async def verify_citations(
     citations: list[Citation],
     rate_limit: float = 1.0,
 ) -> None:
-    """Verify all source URLs in a list of citations.
+    """Verify source URLs in a list of citations.
+
+    Verifies only the primary (first) source per citation to minimize
+    external requests. Skips CourtListener /c/ redirect URLs when the
+    citation has another verifiable source — CourtListener prefers API
+    access for programmatic lookups, and the /c/ URLs are redirect
+    endpoints meant for browser use.
 
     Args:
         citations: Citations whose sources will be verified in-place.
         rate_limit: Minimum seconds between requests.
     """
+    verified_urls: dict[str, bool] = {}
+
     async with httpx.AsyncClient() as client:
         for cite in citations:
-            for source in cite.sources:
-                await _verify_url(client, source)
-                if rate_limit > 0:
-                    await asyncio.sleep(rate_limit)
+            if not cite.sources:
+                continue
+
+            # Pick the best source to verify: prefer non-CourtListener
+            # when alternatives exist
+            source = cite.sources[0]
+            for s in cite.sources:
+                if "courtlistener.com/c/" not in s.url:
+                    source = s
+                    break
+
+            # Skip if we already verified this URL (e.g., shared via parallel cites)
+            if source.url in verified_urls:
+                source.verified = verified_urls[source.url]
+                continue
+
+            await _verify_url(client, source)
+            verified_urls[source.url] = source.verified
+            if rate_limit > 0:
+                await asyncio.sleep(rate_limit)
 
 
 def verify_citations_sync(
