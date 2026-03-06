@@ -2,14 +2,93 @@
 
 from __future__ import annotations
 
-from jetcite.models import Citation
+from jetcite.models import Citation, CitationType
 from jetcite.patterns import get_matchers
+
+
+def _detect_parallel_citations(citations: list[Citation], text: str) -> None:
+    """Detect parallel citations and link them.
+
+    When two case citations appear close together in text separated by a comma
+    or semicolon (e.g., "2024 ND 156, 10 N.W.3d 500"), they refer to the same
+    case. This function links them by populating each citation's parallel_cites
+    list and merging their sources.
+    """
+    case_cites = [(i, c) for i, c in enumerate(citations) if c.cite_type == CitationType.CASE]
+
+    for idx in range(len(case_cites) - 1):
+        _, cite_a = case_cites[idx]
+        _, cite_b = case_cites[idx + 1]
+
+        # Check if they're adjacent in the original text
+        end_a = cite_a.position + len(cite_a.raw_text)
+        start_b = cite_b.position
+
+        # Get the text between them
+        between = text[end_a:start_b]
+
+        # Parallel citations are separated by ", " or "; " with optional whitespace
+        # and possibly a pinpoint like ", ¶ 12, "
+        stripped = between.strip()
+
+        # Must be a short separator — comma, semicolon, or pinpoint then comma
+        if not stripped:
+            continue
+
+        # Common patterns between parallel cites:
+        #   ", "  or  "; "  or  ", ¶ 12, "  or  " ¶ 12, "
+        # The separator should be short (under ~40 chars) and start with , or ;
+        # or be just whitespace around a pinpoint
+        if len(stripped) > 40:
+            continue
+
+        # Must start with comma or semicolon
+        if not stripped.startswith((",", ";")):
+            continue
+
+        # Should not contain sentence-ending punctuation or text that indicates
+        # a new thought (period, "see", "and", etc.)
+        inner = stripped.lstrip(",;").strip()
+        if any(sep in inner.lower() for sep in (".", "see ", "and ", "but ", "cf.")):
+            continue
+
+        # If inner text remains and it's not a pinpoint or empty, skip
+        # Valid inner: empty, or just a pinpoint like "¶ 12" or "at 128"
+        if inner and not _looks_like_pinpoint_or_empty(inner):
+            continue
+
+        # Link them
+        if cite_b.normalized not in cite_a.parallel_cites:
+            cite_a.parallel_cites.append(cite_b.normalized)
+        if cite_a.normalized not in cite_b.parallel_cites:
+            cite_b.parallel_cites.append(cite_a.normalized)
+
+        # Merge sources: each citation gets the other's sources it doesn't have
+        a_source_names = {s.name for s in cite_a.sources}
+        b_source_names = {s.name for s in cite_b.sources}
+        for src in cite_b.sources:
+            if src.name not in a_source_names:
+                cite_a.sources.append(src)
+        for src in cite_a.sources:
+            if src.name not in b_source_names:
+                cite_b.sources.append(src)
+
+
+def _looks_like_pinpoint_or_empty(s: str) -> bool:
+    """Check if a string looks like a pinpoint reference or is trivially empty."""
+    import re
+    # Match: ¶ 12, ¶¶ 12-15, at 128, 128, at ¶ 12, or nothing meaningful
+    return bool(re.match(
+        r'^(?:at\s+)?(?:¶¶?\s*)?\d+(?:\s*[-–]\s*\d+)?$',
+        s.strip(),
+    ))
 
 
 def scan_text(text: str) -> list[Citation]:
     """Scan text for all citations, deduplicated by normalized form.
 
-    Returns citations in order of first appearance.
+    Returns citations in order of first appearance, with parallel
+    citations detected and linked.
     """
     all_citations: list[Citation] = []
     seen: set[str] = set()
@@ -23,6 +102,10 @@ def scan_text(text: str) -> list[Citation]:
 
     # Sort by position in source text
     all_citations.sort(key=lambda c: c.position)
+
+    # Detect parallel citations
+    _detect_parallel_citations(all_citations, text)
+
     return all_citations
 
 

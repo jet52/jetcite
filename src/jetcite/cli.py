@@ -37,6 +37,9 @@ def _format_table(citations: list[Citation], all_sources: bool = False) -> str:
             verified = " ✓" if cite.sources[0].verified else " ✗"
         lines.append(f"  {i:>3}  {cite.normalized:<30} {cite.cite_type.value:<14} {url}{verified}")
 
+        if cite.parallel_cites:
+            lines.append(f"       {'':30} {'= ' + ', '.join(cite.parallel_cites)}")
+
         if all_sources and len(cite.sources) > 1:
             for src in cite.sources[1:]:
                 v = ""
@@ -59,6 +62,8 @@ def _format_json(citations: list[Citation]) -> str:
         }
         if cite.pinpoint:
             entry["pinpoint"] = cite.pinpoint
+        if cite.parallel_cites:
+            entry["parallel_cites"] = cite.parallel_cites
         entry["sources"] = [
             {"name": s.name, "url": s.url}
             | ({"verified": s.verified} if s.verified is not None else {})

@@ -6,6 +6,7 @@ from jetcite.models import Citation, CitationType, Source
 from jetcite.patterns import register
 from jetcite.patterns.base import BaseMatcher
 from jetcite.sources.courtlistener import courtlistener_url
+from jetcite.sources.ndcourts import nd_reporter_search_url
 
 # Each tuple: (compiled_regex, reporter_format_func, has_edition_group)
 # reporter_format_func takes the match and returns (reporter_string, edition_or_None)
@@ -47,6 +48,10 @@ _add(r'(\d+)\s+Ill\.\s?Dec\.\s+(\d+)', "Ill. Dec.", False)
 _add(r'(\d+)\s+Wash\.\s?(?:(2d)\s+)?(\d+)', "Wash.{ed}", True)
 _add(r'(\d+)\s+Wash\.\s?App\.\s?(?:(2d)\s+)?(\d+)', "Wash. App.{ed}", True)
 
+# North Dakota Reports: 50 N.D. 123 (volumes 1-79, published 1890-1953)
+# Use a negative lookahead to avoid matching "N.D.C." (NDCC) or "N.D.A." (NDAC)
+_add(r'(\d{1,3})\s+N\.D\.\s+(?!C|A)(\d+)', "N.D.", False)
+
 # Malformed NW2d fallback (case-insensitive)
 _add(r'(\d+)\s+(?:NW\.?\s?2d|N\.W2d)\s+(\d+)', "N.W.2d", False)
 
@@ -56,6 +61,9 @@ _STATE_REPORTERS = re.compile(
     r'(Conn\.|Ga\.|Haw\.|Kan\.|Mass\.|Md\.|Mich\.|N\.C\.|N\.J\.|Neb\.|Or\.|Pa\.|S\.C\.|Va\.)'
     r'\s+(\d+)'
 )
+
+# Reporters that should get an ndcourts.gov search URL as an additional source
+_NDCOURTS_REPORTERS = {"N.W.", "N.W. 2d", "N.W.2d", "N.W. 3d", "N.W.3d", "N.D."}
 
 
 class RegionalReporterMatcher(BaseMatcher):
@@ -78,14 +86,21 @@ class RegionalReporterMatcher(BaseMatcher):
                 # Clean up double spaces
                 reporter = reporter.strip()
 
+                sources = [Source("courtlistener",
+                                  courtlistener_url(reporter, volume, page))]
+                nd_url = nd_reporter_search_url(reporter, volume, page)
+                if nd_url:
+                    sources.insert(0, Source("ndcourts", nd_url))
+
+                jur = "nd" if reporter in ("N.D.",) else "us"
+
                 results.append(Citation(
                     raw_text=m.group(0),
                     cite_type=CitationType.CASE,
-                    jurisdiction="us",
+                    jurisdiction=jur,
                     normalized=f"{volume} {reporter} {page}",
                     components={"volume": volume, "reporter": reporter, "page": page},
-                    sources=[Source("courtlistener",
-                                    courtlistener_url(reporter, volume, page))],
+                    sources=sources,
                     position=m.start(),
                 ))
 

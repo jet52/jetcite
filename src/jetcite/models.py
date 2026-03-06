@@ -30,3 +30,4 @@ class Citation:
     pinpoint: str | None = None
     sources: list[Source] = field(default_factory=list)
     position: int = 0  # character offset in source text
+    parallel_cites: list[str] = field(default_factory=list)  # normalized forms of parallel citations
