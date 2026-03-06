@@ -66,9 +66,9 @@ def test_nd_reports():
     assert len(results) == 1
     assert results[0].normalized == "50 N.D. 123"
     assert results[0].jurisdiction == "nd"
-    # Should have ndcourts.gov search URL as primary
-    assert "ndcourts.gov" in results[0].sources[0].url
-    assert "citType=ND" in results[0].sources[0].url
+    # N.D. Reports not searchable on ndcourts.gov; CourtListener only
+    assert "courtlistener.com" in results[0].sources[0].url
+    assert all("ndcourts.gov" not in s.url for s in results[0].sources)
 
 
 def test_nd_reports_not_ndcc():

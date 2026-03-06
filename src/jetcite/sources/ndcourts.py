@@ -29,7 +29,6 @@ _NDCOURTS_CIT_TYPES = {
     "N.W. 2d": "NW2d",
     "N.W.3d": "NW3d",
     "N.W. 3d": "NW3d",
-    "N.D.": "ND",
 }
 
 
