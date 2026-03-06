@@ -29,7 +29,7 @@ jetcite --scan document.md --format json
 # Options
 jetcite --verify "42 U.S.C. § 1983"    # HTTP-check the URL
 jetcite --open "2024 ND 156"            # open in browser
-jetcite --from-clipboard                 # read from macOS clipboard
+jetcite --from-clipboard                 # read from clipboard (cross-platform)
 jetcite --all-sources "2024 ND 156"     # show all URLs, not just primary
 ```
 

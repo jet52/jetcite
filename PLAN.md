@@ -38,7 +38,7 @@ citations but forgiving of common deviations.
 │   ├── scanner.py                 # Batch scanning, deduplication, parallel cite detection
 │   ├── models.py                  # Citation, CitationType, Source, to_dict()
 │   ├── resolver.py                # URL verification + rate limiting
-│   ├── cache.py                   # Local reference cache (~/refs/) [planned]
+│   ├── cache.py                   # Local reference cache (~/refs/)
 │   ├── patterns/
 │   │   ├── __init__.py            # Pattern registry, priority ordering
 │   │   ├── base.py                # Base matcher class, helpers
@@ -72,7 +72,11 @@ citations but forgiving of common deviations.
 │   ├── test_nd.py
 │   ├── test_scanner.py
 │   ├── test_resolver.py
-│   └── test_cache.py             # [planned]
+│   ├── test_cache.py
+│   ├── test_integration.py
+│   └── fixtures/
+│       ├── all_citation_types.txt
+│       └── sample_opinion.txt
 ├── pyproject.toml
 ├── PLAN.md
 └── README.md
@@ -285,7 +289,7 @@ All regional reporters from the West National Reporter System:
 |----------|-----------------|--------|
 | Atlantic | A., A.2d, A.3d | CT, DE, DC, ME, MD, NH, NJ, PA, RI, VT |
 | North Eastern | N.E., N.E.2d, N.E.3d | IL, IN, MA, NY, OH |
-| North Western | N.W., N.W.2d | IA, MI, MN, NE, ND, SD, WI |
+| North Western | N.W., N.W.2d, N.W.3d | IA, MI, MN, NE, ND, SD, WI |
 | Pacific | P., P.2d, P.3d | AK, AZ, CA, CO, HI, ID, KS, MT, NV, NM, OK, OR, UT, WA, WY |
 | South Eastern | S.E., S.E.2d | GA, NC, SC, VA, WV |
 | Southern | So., So. 2d, So. 3d | AL, FL, LA, MS |
@@ -435,7 +439,7 @@ When a new state module is added, the implementer should research:
 7. ~~Resolver~~ — URL generation, optional HTTP verification
 8. ~~Scanner~~ — Batch scanning, deduplication, position tracking
 9. ~~CLI~~ — Single and batch modes, url/json/table output, all flags
-10. ~~Tests~~ — 56 tests passing
+10. ~~Tests~~ — 56 tests passing (now 161 total)
 
 ### Phase 1.5: Parallel Citations + ND History — COMPLETE (v0.2.0)
 
@@ -453,60 +457,42 @@ When a new state module is added, the implementer should research:
 3. ~~Cross-platform clipboard~~ — pyperclip instead of pbpaste
 4. ~~README~~ — CLI usage, Python API, skill/plugin integration, MCP example
 
-### Phase 2: Local Reference Cache
+### Phase 1.7: Integration Tests, Cache Module, Bug Fixes — COMPLETE (v0.4.0)
 
-Add local file resolution and incremental caching to `~/refs/`.
+1. ~~Cache module~~ (cache.py) — `resolve_local()`, `cache_content()`,
+   `read_meta()`, `is_stale()`, `add_local_source()`
+2. ~~Cache directory structure~~ — maps all citation types to ~/refs/ paths
+3. ~~Cache metadata~~ — `.meta.json` sidecar files with source URL, fetch time
+4. ~~Staleness policy~~ — permanent for cases/constitutions, 90 days for
+   statutes/regulations, 180 days for court rules
+5. ~~Test fixtures~~ — sample opinion and comprehensive all-types document
+6. ~~Integration tests~~ — 73 tests scanning fixture documents for all types
+7. ~~Cache tests~~ — 21 tests using tmp_path (never touches ~/refs/)
+8. ~~Bug fixes~~:
+   - CFR regex capturing trailing sentence periods
+   - Fed. R. Evid. not matching long form (required nonexistent "P.")
+   - U.S. Const. amend. not capturing section (e.g., amend. XIV, § 1)
+   - NDAC regex capturing trailing sentence periods
 
-1. **Cache module** (cache.py)
-   - `resolve_local(citation, refs_dir) -> Path | None` — map a Citation to
-     its local file path based on citation type and components
-   - `cache_content(citation, content, refs_dir)` — write fetched content to
-     the refs directory in markdown format
-   - `fetch_and_cache(citation, refs_dir) -> str` — download from primary web
-     source, cache locally, return content
+### Phase 2: Cache Integration
 
-2. **Cache directory structure** (matches existing ~/refs/ layout)
-   ```
-   ~/refs/
-   ├── opin/markdown/{year}/{year}ND{number}.md    # ND opinions
-   ├── ndcc/title-{n}/chapter-{n}-{ch}.md          # NDCC chapters
-   ├── ndac/title-{n}/article-{n}-{a}/chapter-{n}-{a}-{ch}.md
-   ├── cnst/art-{nn}/sec-{n}.md                    # ND Constitution
-   ├── rule/{ruleset}/rule-{parts}.md               # Court rules
-   └── federal/
-       ├── usc/{title}/{section}.md                 # U.S. Code sections
-       └── opinions/{reporter}/{volume}/{page}.md   # Federal cases
-   ```
+Wire the cache module into lookup/scan_text and CLI.
 
-3. **Cache metadata** — `.meta.json` sidecar files alongside cached content:
-   ```json
-   {
-     "source_url": "https://www.ndcourts.gov/...",
-     "fetched": "2026-03-06T12:00:00Z",
-     "citation": "2024 ND 156",
-     "content_type": "text/html"
-   }
-   ```
-
-4. **Staleness policy**
-   - Opinions: permanent (immutable once published)
-   - Constitutions: permanent (amendments are new sections, not edits)
-   - Statutes and regulations: stale after 90 days (legislative sessions)
-   - Court rules: stale after 180 days
-   - Staleness = informational warning, not auto-refetch
-
-5. **Integration with lookup/scan_text**
+1. **Integration with lookup/scan_text**
    - Add optional `refs_dir` parameter to `lookup()` and `scan_text()`
    - When set, check local cache first; add `Source(name="local",
      url="file:///...")` at top of sources list if found
    - `search_hint` field on Citation for finding content within cached files
 
-6. **CLI integration**
+2. **fetch_and_cache** — download from primary web source, cache locally,
+   return content
+
+3. **CLI integration**
    - `jetcite --refs-dir ~/refs "2024 ND 156"` — check local first
    - `jetcite --scan doc.md --refs-dir ~/refs` — report cache hits vs misses
    - `jetcite --fetch "2024 ND 156" --refs-dir ~/refs` — fetch and cache
 
-7. **Tests** for cache resolution, caching, staleness detection
+4. **Tests** for fetch_and_cache, CLI --refs-dir flag
 
 ### Phase 3: Expand State Coverage
 
@@ -658,7 +644,7 @@ Ported:
 - ~~Citation record structure~~
 
 Remaining (Phase 2):
-- Local file resolution logic (`resolve_local()`)
+- ~~Local file resolution logic (`resolve_local()`)~~
 - Search hints for locating text within cached files
 - Integration: replace nd_cite_check.py's ~800 lines of regex with
   `from jetcite import scan_text`
