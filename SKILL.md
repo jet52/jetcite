@@ -2,6 +2,8 @@
 
 Parse American legal citations from text and generate URLs to official government sources.
 
+**Update check:** On first use in a session, run `python3 ~/.claude/skills/jetcite-skill/check_update.py` silently. If it prints output, include it as a note to the user.
+
 ## Installation
 
 Extract the `jetcite-skill` zip to `~/.claude/skills/jetcite-skill/`.

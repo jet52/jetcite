@@ -50,6 +50,11 @@ def cmd_scan(args):
 
 
 def main():
+    from check_update import check_for_update
+    update_msg = check_for_update()
+    if update_msg:
+        print(f"Note: {update_msg}", file=sys.stderr)
+
     parser = argparse.ArgumentParser(
         description="jetcite — American legal citation parser and linker"
     )
