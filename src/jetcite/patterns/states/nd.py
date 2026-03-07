@@ -29,7 +29,7 @@ _NDCC_SECTION = re.compile(
 _NDCC_CHAPTER = re.compile(
     r'(?:(?:N[\s.]*D[\s.]*C(?:ent)*[.\s]*C(?:ode)*[,.\s]{0,3}'
     r'(?:ch\.|ch|chapter)\s+)'
-    r'|(?:(?<!C\.\s)(?:[Cc]hapter|[Cc]h\.?)\s+))'
+    r'|(?:(?<!C\.\s)(?<!\w)(?:[Cc]hapter|[Cc]h\.?)\s+))'
     r'(\d{1,2})(?:\.(\d+))?'
     r'[^.\w]{1,2}(\d{1,2})(?:\.(\d+))?',
     re.IGNORECASE,

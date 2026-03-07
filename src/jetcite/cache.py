@@ -13,6 +13,7 @@ from pathlib import Path
 import httpx
 
 from jetcite.models import Citation, CitationType, Source
+from jetcite.patterns.base import roman_to_int
 
 # Staleness thresholds in days — informational only, not auto-refetch
 STALENESS_DAYS = {
@@ -47,8 +48,8 @@ def _citation_path(citation: Citation) -> Path | None:
         if citation.jurisdiction == "nd":
             # NDCC: ndcc/title-{t}/chapter-{t}-{ch}.md
             if "title" in c and "chapter" in c:
-                t = c["title"]
-                ch = c["chapter"]
+                t = f"{c['title']}.{c['title_dec']}" if c.get("title_dec") else c["title"]
+                ch = f"{c['chapter']}.{c['chapter_dec']}" if c.get("chapter_dec") else c["chapter"]
                 return Path("ndcc") / f"title-{t}" / f"chapter-{t}-{ch}.md"
         elif "title" in c and "section" in c:
             # USC: federal/usc/{title}/{section}.md
@@ -58,23 +59,34 @@ def _citation_path(citation: Citation) -> Path | None:
     if citation.cite_type == CitationType.CONSTITUTION:
         if citation.jurisdiction == "nd":
             if "article" in c and "section" in c:
-                return Path("cnst") / f"art-{c['article']}" / f"sec-{c['section']}.md"
+                art_num = roman_to_int(c["article"])
+                return Path("cnst") / f"art-{art_num:02d}" / f"sec-{c['section']}.md"
         return None
 
     if citation.cite_type == CitationType.REGULATION:
-        if citation.jurisdiction == "nd" and all(k in c for k in ("p1", "p2", "p3")):
+        if citation.jurisdiction == "nd" and all(k in c for k in ("part1", "part2", "part3")):
             # NDAC: ndac/title-{p1}/article-{p1}-{p2}/chapter-{p1}-{p2}-{p3}.md
-            return (Path("ndac") / f"title-{c['p1']}"
-                    / f"article-{c['p1']}-{c['p2']}"
-                    / f"chapter-{c['p1']}-{c['p2']}-{c['p3']}.md")
+            return (Path("ndac") / f"title-{c['part1']}"
+                    / f"article-{c['part1']}-{c['part2']}"
+                    / f"chapter-{c['part1']}-{c['part2']}-{c['part3']}.md")
         elif "title" in c and "section" in c:
             return Path("federal/cfr") / c["title"] / f"{c['section']}.md"
         return None
 
     if citation.cite_type == CitationType.COURT_RULE:
-        if "rule_set" in c:
-            parts = c.get("rule_number", "0")
-            return Path("rule") / c["rule_set"] / f"rule-{parts}.md"
+        rule_set = c.get("rule_set", "")
+        rule_parts = c.get("parts", [])
+        if rule_set and rule_parts:
+            if rule_set == "ndstdsimposinglawyersanctions":
+                filename = f"rule-{'-'.join(rule_parts)}.md"
+            elif rule_set == "ndcodejudconduct":
+                filename = f"rule-{rule_parts[0]}.md"
+            elif rule_set == "rltdpracticeoflawbylawstudents":
+                arabic = roman_to_int(rule_parts[0])
+                filename = f"rule-{arabic}.md" if arabic else f"rule-{rule_parts[0]}.md"
+            else:
+                filename = f"rule-{'.'.join(rule_parts)}.md"
+            return Path("rule") / rule_set / filename
         return None
 
     return None
