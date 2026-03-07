@@ -24,6 +24,7 @@ jobs:
           cp jetcite_tool.py jetcite-skill/
           cp SKILL.md jetcite-skill/
           cp README.md jetcite-skill/
+          mkdir -p jetcite-skill/src
           cp -r src/jetcite jetcite-skill/src/jetcite
           cd jetcite-skill && zip -r ../jetcite-skill-${{ steps.version.outputs.version }}.zip .
 
