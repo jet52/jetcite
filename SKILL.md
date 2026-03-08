@@ -1,3 +1,8 @@
+---
+name: jetcite
+description: Parse American legal citations from text and generate URLs to official government sources.
+---
+
 # jetcite — Legal Citation Parser and Linker
 
 Parse American legal citations from text and generate URLs to official government sources.
