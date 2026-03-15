@@ -512,6 +512,14 @@ Each state module adds:
 
 ### Phase 4: Enhanced Features
 
+- **Parallel citation validation** — define which parallel reporters are
+  expected for a given jurisdiction and year range, then flag citations that
+  are missing expected parallels. For ND cases:
+  - 1890–1953: N.D. reporter + N.W. or N.W.2d
+  - 1953–1997: N.W.2d only (no state reporter, no neutral cite)
+  - 1997–present: neutral cite (YYYY ND NNN) + N.W.2d or N.W.3d
+  Extensible to other jurisdictions. Could power a `--check-parallels` CLI
+  flag or feed into jetbriefcheck/jetredline validation.
 - **Id. citation tracking** — resolve `Id.` and `Id. at 128` to the preceding
   citation in batch mode (see Future Enhancements below)
 - **Short-form citation resolution** — e.g., `Smith, 585 N.W.2d at 128`
@@ -533,6 +541,17 @@ Run jetcite as a single MCP server that all tools connect to.
    all use the same server.
 
 3. **Cache statistics** — report cache hits/misses, staleness warnings
+
+---
+
+## Known Bugs
+
+### ~~ndcourts.gov ND opinion URLs return 404~~ — FIXED 2026-03-14
+
+Updated `nd_opinion_url()` to use the search URL pattern
+(`/supreme-court/opinions?cit1=...&citType=ND&cit2=...`) instead of the
+direct-link pattern (`/supreme-court/opinion/{year}ND{number}`) which returns
+404.
 
 ---
 

@@ -6,7 +6,7 @@ import asyncio
 
 import httpx
 
-from jetcite.models import Citation, Source
+from jetcite.models import Citation, CitationType, Source
 
 
 async def _verify_url(client: httpx.AsyncClient, source: Source) -> None:
@@ -66,3 +66,28 @@ def verify_citations_sync(
 ) -> None:
     """Synchronous wrapper for verify_citations."""
     asyncio.run(verify_citations(citations, rate_limit))
+
+
+def resolve_nd_opinion_urls(citations: list[Citation]) -> None:
+    """Resolve ndcourts.gov search URLs to direct opinion PDF URLs.
+
+    For each ND neutral citation, fetches the search results page and
+    extracts the direct link to the opinion PDF. Updates the source URL
+    in-place. Citations that fail to resolve keep the search URL.
+    """
+    from jetcite.sources.ndcourts import resolve_nd_opinion_url
+
+    for cite in citations:
+        if cite.jurisdiction != "nd" or cite.cite_type != CitationType.CASE:
+            continue
+        year = cite.components.get("year")
+        number = cite.components.get("number")
+        if not year or not number:
+            continue
+        # Find the ndcourts source and replace its URL
+        for src in cite.sources:
+            if src.name == "ndcourts":
+                resolved = resolve_nd_opinion_url(year, number)
+                if resolved:
+                    src.url = resolved
+                break

@@ -31,7 +31,7 @@ def _nd_opinion() -> Citation:
         jurisdiction="nd",
         normalized="2024 ND 156",
         components={"year": "2024", "number": "156"},
-        sources=[Source("ndcourts", "https://www.ndcourts.gov/supreme-court/opinion/2024ND156")],
+        sources=[Source("ndcourts", "https://www.ndcourts.gov/supreme-court/opinions?cit1=2024&citType=ND&cit2=156&pageSize=10&sortOrder=1")],
     )
 
 

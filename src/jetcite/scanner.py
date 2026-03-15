@@ -6,6 +6,7 @@ from pathlib import Path
 
 from jetcite.models import Citation, CitationType
 from jetcite.patterns import get_matchers
+from jetcite.resolver import resolve_nd_opinion_urls
 
 
 def _detect_parallel_citations(citations: list[Citation], text: str) -> None:
@@ -96,7 +97,11 @@ def _apply_cache(citations: list[Citation], refs_dir: Path) -> None:
             add_local_source(cite, local_path)
 
 
-def scan_text(text: str, refs_dir: Path | None = None) -> list[Citation]:
+def scan_text(
+    text: str,
+    refs_dir: Path | None = None,
+    resolve: bool = True,
+) -> list[Citation]:
     """Scan text for all citations, deduplicated by normalized form.
 
     Returns citations in order of first appearance, with parallel
@@ -104,6 +109,9 @@ def scan_text(text: str, refs_dir: Path | None = None) -> list[Citation]:
 
     If refs_dir is provided, checks the local cache and adds a local
     Source at the front of each citation's sources list when found.
+
+    If resolve is True (default), resolves ndcourts.gov search URLs to
+    direct opinion PDF URLs via HTTP.
     """
     all_citations: list[Citation] = []
     seen: set[str] = set()
@@ -121,6 +129,10 @@ def scan_text(text: str, refs_dir: Path | None = None) -> list[Citation]:
     # Detect parallel citations
     _detect_parallel_citations(all_citations, text)
 
+    # Resolve ND opinion URLs to direct PDF links
+    if resolve:
+        resolve_nd_opinion_urls(all_citations)
+
     # Check local cache
     if refs_dir is not None:
         _apply_cache(all_citations, refs_dir)
@@ -128,16 +140,25 @@ def scan_text(text: str, refs_dir: Path | None = None) -> list[Citation]:
     return all_citations
 
 
-def lookup(text: str, refs_dir: Path | None = None) -> Citation | None:
+def lookup(
+    text: str,
+    refs_dir: Path | None = None,
+    resolve: bool = True,
+) -> Citation | None:
     """Look up a single citation string. Returns the first match.
 
     If refs_dir is provided, checks the local cache and adds a local
     Source at the front of the citation's sources list when found.
+
+    If resolve is True (default), resolves ndcourts.gov search URLs to
+    direct opinion PDF URLs via HTTP.
     """
     matchers = get_matchers()
     for matcher in matchers:
         result = matcher.find_first(text)
         if result:
+            if resolve:
+                resolve_nd_opinion_urls([result])
             if refs_dir is not None:
                 _apply_cache([result], refs_dir)
             return result
