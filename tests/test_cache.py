@@ -10,6 +10,10 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 from jetcite.cache import (
+    _citation_path,
+    _reporter_dir,
+    _ND_REPORTERS,
+    _FEDERAL_REPORTERS,
     add_local_source,
     cache_content,
     fetch_and_cache,
@@ -31,7 +35,7 @@ def _nd_opinion() -> Citation:
         jurisdiction="nd",
         normalized="2024 ND 156",
         components={"year": "2024", "number": "156"},
-        sources=[Source("ndcourts", "https://www.ndcourts.gov/supreme-court/opinions?cit1=2024&citType=ND&cit2=156&pageSize=10&sortOrder=1")],
+        sources=[Source("ndcourts", "https://www.ndcourts.gov/supreme-court/opinions/171302")],
     )
 
 
@@ -85,7 +89,7 @@ def _nd_court_rule() -> Citation:
         cite_type=CitationType.COURT_RULE,
         jurisdiction="nd",
         normalized="N.D.R.Civ.P. 56",
-        components={"rule_set": "civil-procedure", "rule_number": "56"},
+        components={"rule_set": "civil-procedure", "parts": ["56"]},
         sources=[Source("ndcourts", "https://www.ndcourts.gov/...")],
     )
 
@@ -96,9 +100,172 @@ def _ndac_cite() -> Citation:
         cite_type=CitationType.REGULATION,
         jurisdiction="nd",
         normalized="N.D.A.C. § 43-02-05-01",
-        components={"p1": "43", "p2": "02", "p3": "05", "p4": "01"},
+        components={"part1": "43", "part2": "02", "part3": "05", "part4": "01"},
         sources=[Source("ndlegis", "https://ndlegis.gov/...")],
     )
+
+
+# ── _reporter_dir ─────────────────────────────────────────────
+
+
+def test_reporter_dir_us():
+    assert _reporter_dir("U.S.") == "scotus"
+
+
+def test_reporter_dir_strips_periods_spaces():
+    assert _reporter_dir("F. Supp. 3d") == "FSupp3d"
+    assert _reporter_dir("S. Ct.") == "SCt"
+    assert _reporter_dir("N.W.2d") == "NW2d"
+    assert _reporter_dir("L. Ed. 2d") == "LEd2d"
+
+
+def test_reporter_dir_strips_apostrophes():
+    assert _reporter_dir("F. App'x") == "FAppx"
+    assert _reporter_dir("F. App\u2019x") == "FAppx"
+
+
+# ── _citation_path: three-tier case routing ──────────────────
+
+
+def test_path_nd_neutral():
+    p = _citation_path(_nd_opinion())
+    assert p == Path("opin/markdown/2024/2024ND156.md")
+
+
+def test_path_nd_reporter_nw2d():
+    cite = Citation(
+        raw_text="355 N.W.2d 16",
+        cite_type=CitationType.CASE, jurisdiction="us",
+        normalized="355 N.W.2d 16",
+        components={"volume": "355", "reporter": "N.W.2d", "page": "16"},
+    )
+    assert _citation_path(cite) == Path("opin/NW2d/355/16.md")
+
+
+def test_path_nd_reporter_nw():
+    cite = Citation(
+        raw_text="1 N.W. 100",
+        cite_type=CitationType.CASE, jurisdiction="us",
+        normalized="1 N.W. 100",
+        components={"volume": "1", "reporter": "N.W.", "page": "100"},
+    )
+    assert _citation_path(cite) == Path("opin/NW/1/100.md")
+
+
+def test_path_nd_reporter_nd():
+    cite = Citation(
+        raw_text="50 N.D. 123",
+        cite_type=CitationType.CASE, jurisdiction="us",
+        normalized="50 N.D. 123",
+        components={"volume": "50", "reporter": "N.D.", "page": "123"},
+    )
+    assert _citation_path(cite) == Path("opin/ND/50/123.md")
+
+
+def test_path_federal_scotus():
+    assert _citation_path(_federal_case()) == Path("federal/scotus/505/377.md")
+
+
+def test_path_federal_f3d():
+    cite = Citation(
+        raw_text="500 F.3d 200",
+        cite_type=CitationType.CASE, jurisdiction="us",
+        normalized="500 F.3d 200",
+        components={"volume": "500", "reporter": "F.3d", "page": "200"},
+    )
+    assert _citation_path(cite) == Path("federal/F3d/500/200.md")
+
+
+def test_path_federal_sct():
+    cite = Citation(
+        raw_text="140 S. Ct. 1731",
+        cite_type=CitationType.CASE, jurisdiction="us",
+        normalized="140 S. Ct. 1731",
+        components={"volume": "140", "reporter": "S. Ct.", "page": "1731"},
+    )
+    assert _citation_path(cite) == Path("federal/SCt/140/1731.md")
+
+
+def test_path_federal_fsupp3d():
+    cite = Citation(
+        raw_text="300 F. Supp. 3d 100",
+        cite_type=CitationType.CASE, jurisdiction="us",
+        normalized="300 F. Supp. 3d 100",
+        components={"volume": "300", "reporter": "F. Supp. 3d", "page": "100"},
+    )
+    assert _citation_path(cite) == Path("federal/FSupp3d/300/100.md")
+
+
+def test_path_reporter_nw3d():
+    """N.W.3d goes to reporter/ (not opin/) since ND uses neutral cites."""
+    cite = Citation(
+        raw_text="10 N.W.3d 500",
+        cite_type=CitationType.CASE, jurisdiction="us",
+        normalized="10 N.W.3d 500",
+        components={"volume": "10", "reporter": "N.W.3d", "page": "500"},
+    )
+    assert _citation_path(cite) == Path("reporter/NW3d/10/500.md")
+
+
+def test_path_reporter_p2d():
+    cite = Citation(
+        raw_text="800 P.2d 500",
+        cite_type=CitationType.CASE, jurisdiction="us",
+        normalized="800 P.2d 500",
+        components={"volume": "800", "reporter": "P.2d", "page": "500"},
+    )
+    assert _citation_path(cite) == Path("reporter/P2d/800/500.md")
+
+
+def test_path_reporter_a3d():
+    cite = Citation(
+        raw_text="200 A.3d 100",
+        cite_type=CitationType.CASE, jurisdiction="us",
+        normalized="200 A.3d 100",
+        components={"volume": "200", "reporter": "A.3d", "page": "100"},
+    )
+    assert _citation_path(cite) == Path("reporter/A3d/200/100.md")
+
+
+# ── _citation_path: non-case types ──────────────────────────
+
+
+def test_path_usc():
+    assert _citation_path(_usc_cite()) == Path("federal/usc/42/1983.md")
+
+
+def test_path_ndcc():
+    assert _citation_path(_ndcc_cite()) == Path("ndcc/title-12.1/chapter-12.1-32.md")
+
+
+def test_path_nd_const():
+    assert _citation_path(_nd_const()) == Path("cnst/art-01/sec-20.md")
+
+
+def test_path_ndac():
+    assert _citation_path(_ndac_cite()) == Path("ndac/title-43/article-43-02/chapter-43-02-05.md")
+
+
+def test_path_cfr():
+    cite = Citation(
+        raw_text="29 C.F.R. § 1630.2",
+        cite_type=CitationType.REGULATION, jurisdiction="us",
+        normalized="29 C.F.R. § 1630.2",
+        components={"title": "29", "section": "1630.2"},
+    )
+    assert _citation_path(cite) == Path("federal/cfr/29/1630.2.md")
+
+
+def test_path_court_rule():
+    assert _citation_path(_nd_court_rule()) == Path("rule/civil-procedure/rule-56.md")
+
+
+def test_path_unknown_returns_none():
+    cite = Citation(
+        raw_text="unknown", cite_type=CitationType.CASE,
+        jurisdiction="us", normalized="unknown", components={},
+    )
+    assert _citation_path(cite) is None
 
 
 # ── resolve_local ───────────────────────────────────────────────
@@ -110,7 +277,6 @@ def test_resolve_local_not_cached(tmp_path):
 
 def test_resolve_local_found(tmp_path):
     cite = _nd_opinion()
-    # Manually create the expected file
     path = tmp_path / "opin/markdown/2024/2024ND156.md"
     path.parent.mkdir(parents=True)
     path.write_text("# 2024 ND 156\nOpinion text here.")
@@ -119,7 +285,7 @@ def test_resolve_local_found(tmp_path):
 
 def test_resolve_local_federal_case(tmp_path):
     cite = _federal_case()
-    path = tmp_path / "federal/opinions/US/505/377.md"
+    path = tmp_path / "federal/scotus/505/377.md"
     path.parent.mkdir(parents=True)
     path.write_text("opinion")
     assert resolve_local(cite, tmp_path) == path
@@ -143,7 +309,7 @@ def test_resolve_local_ndcc(tmp_path):
 
 def test_resolve_local_nd_const(tmp_path):
     cite = _nd_const()
-    path = tmp_path / "cnst/art-I/sec-20.md"
+    path = tmp_path / "cnst/art-01/sec-20.md"
     path.parent.mkdir(parents=True)
     path.write_text("section")
     assert resolve_local(cite, tmp_path) == path
@@ -162,6 +328,34 @@ def test_resolve_local_ndac(tmp_path):
     path = tmp_path / "ndac/title-43/article-43-02/chapter-43-02-05.md"
     path.parent.mkdir(parents=True)
     path.write_text("admin rule")
+    assert resolve_local(cite, tmp_path) == path
+
+
+def test_resolve_local_nd_reporter(tmp_path):
+    """N.W.2d case resolves under opin/."""
+    cite = Citation(
+        raw_text="355 N.W.2d 16",
+        cite_type=CitationType.CASE, jurisdiction="us",
+        normalized="355 N.W.2d 16",
+        components={"volume": "355", "reporter": "N.W.2d", "page": "16"},
+    )
+    path = tmp_path / "opin/NW2d/355/16.md"
+    path.parent.mkdir(parents=True)
+    path.write_text("opinion")
+    assert resolve_local(cite, tmp_path) == path
+
+
+def test_resolve_local_state_reporter(tmp_path):
+    """P.2d case resolves under reporter/."""
+    cite = Citation(
+        raw_text="800 P.2d 500",
+        cite_type=CitationType.CASE, jurisdiction="us",
+        normalized="800 P.2d 500",
+        components={"volume": "800", "reporter": "P.2d", "page": "500"},
+    )
+    path = tmp_path / "reporter/P2d/800/500.md"
+    path.parent.mkdir(parents=True)
+    path.write_text("opinion")
     assert resolve_local(cite, tmp_path) == path
 
 
@@ -236,6 +430,13 @@ def test_stale_case_permanent(tmp_path):
     assert is_stale(cite, path) is False
 
 
+def test_stale_constitution_permanent(tmp_path):
+    """Constitution citations should never be stale."""
+    cite = _nd_const()
+    path = cache_content(cite, "content", tmp_path)
+    assert is_stale(cite, path) is False
+
+
 def test_stale_statute_fresh(tmp_path):
     """A just-cached statute should not be stale."""
     cite = _usc_cite()
@@ -247,12 +448,36 @@ def test_stale_statute_old(tmp_path):
     """A statute cached > 90 days ago should be stale."""
     cite = _usc_cite()
     path = cache_content(cite, "content", tmp_path)
-    # Backdate the metadata
     meta = read_meta(path)
     meta["fetched"] = "2025-01-01T00:00:00+00:00"
     meta_path = path.with_suffix(".md.meta.json")
     meta_path.write_text(json.dumps(meta))
     assert is_stale(cite, path) is True
+
+
+def test_stale_court_rule_fresh(tmp_path):
+    """A just-cached court rule should not be stale."""
+    cite = _nd_court_rule()
+    path = cache_content(cite, "content", tmp_path)
+    assert is_stale(cite, path) is False
+
+
+def test_stale_court_rule_old(tmp_path):
+    """A court rule cached > 180 days ago should be stale."""
+    cite = _nd_court_rule()
+    path = cache_content(cite, "content", tmp_path)
+    meta = read_meta(path)
+    meta["fetched"] = "2025-01-01T00:00:00+00:00"
+    meta_path = path.with_suffix(".md.meta.json")
+    meta_path.write_text(json.dumps(meta))
+    assert is_stale(cite, path) is True
+
+
+def test_stale_regulation_fresh(tmp_path):
+    """A just-cached regulation should not be stale."""
+    cite = _ndac_cite()
+    path = cache_content(cite, "content", tmp_path)
+    assert is_stale(cite, path) is False
 
 
 def test_stale_no_meta(tmp_path):

@@ -26,9 +26,33 @@ STALENESS_DAYS = {
 
 DEFAULT_REFS_DIR = Path.home() / "refs"
 
+# Historical ND reporters stored under opin/ (before neutral citations)
+_ND_REPORTERS = frozenset({"N.W.", "N.W.2d", "N.D."})
+
+# Federal case reporters stored under federal/
+_FEDERAL_REPORTERS = frozenset({
+    "U.S.", "S. Ct.", "L. Ed.", "L. Ed. 2d",
+    "F.", "F.2d", "F.3d", "F.4th",
+    "F. Supp.", "F. Supp. 2d", "F. Supp. 3d",
+    "B.R.", "F.R.D.", "Fed. Cl.", "M.J.",
+    "Vet. App.", "T.C.", "F. App\u2019x", "F. App'x",
+})
+
+
+def _reporter_dir(reporter: str) -> str:
+    """Normalize a reporter abbreviation to a directory name."""
+    if reporter == "U.S.":
+        return "scotus"
+    return reporter.replace(".", "").replace(" ", "").replace("\u2019", "").replace("'", "")
+
 
 def _citation_path(citation: Citation) -> Path | None:
     """Map a citation to its relative path within the refs directory.
+
+    Three-tier layout for cases:
+      opin/     — ND cases (neutral cites + historical ND reporters)
+      federal/  — federal case reporters
+      reporter/ — all other state and regional reporters
 
     Returns None if the citation type/components don't map to a known path.
     """
@@ -39,9 +63,14 @@ def _citation_path(citation: Citation) -> Path | None:
             # ND neutral citation: opin/markdown/{year}/{year}ND{number}.md
             return Path("opin/markdown") / c["year"] / f"{c['year']}ND{c['number']}.md"
         elif "reporter" in c and "volume" in c and "page" in c:
-            reporter = c["reporter"].replace(" ", "_").replace(".", "")
-            return (Path("federal/opinions") / reporter
-                    / c["volume"] / f"{c['page']}.md")
+            reporter = c["reporter"]
+            rdir = _reporter_dir(reporter)
+            if reporter in _ND_REPORTERS:
+                return Path("opin") / rdir / c["volume"] / f"{c['page']}.md"
+            elif reporter in _FEDERAL_REPORTERS:
+                return Path("federal") / rdir / c["volume"] / f"{c['page']}.md"
+            else:
+                return Path("reporter") / rdir / c["volume"] / f"{c['page']}.md"
         return None
 
     if citation.cite_type == CitationType.STATUTE:
