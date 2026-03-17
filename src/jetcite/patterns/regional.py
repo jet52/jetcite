@@ -6,7 +6,6 @@ from jetcite.models import Citation, CitationType, Source
 from jetcite.patterns import register
 from jetcite.patterns.base import BaseMatcher
 from jetcite.sources.courtlistener import courtlistener_url
-from jetcite.sources.ndcourts import nd_reporter_search_url
 
 # Each tuple: (compiled_regex, reporter_format_func, has_edition_group)
 # reporter_format_func takes the match and returns (reporter_string, edition_or_None)
@@ -62,10 +61,6 @@ _STATE_REPORTERS = re.compile(
     r'\s+(\d+)'
 )
 
-# Reporters that should get an ndcourts.gov search URL as an additional source
-_NDCOURTS_REPORTERS = {"N.W.", "N.W. 2d", "N.W.2d", "N.W. 3d", "N.W.3d", "N.D."}
-
-
 class RegionalReporterMatcher(BaseMatcher):
     def find_all(self, text: str) -> list[Citation]:
         results = []
@@ -88,9 +83,6 @@ class RegionalReporterMatcher(BaseMatcher):
 
                 sources = [Source("courtlistener",
                                   courtlistener_url(reporter, volume, page))]
-                nd_url = nd_reporter_search_url(reporter, volume, page)
-                if nd_url:
-                    sources.insert(0, Source("ndcourts", nd_url))
 
                 jur = "nd" if reporter in ("N.D.",) else "us"
 

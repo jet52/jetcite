@@ -390,11 +390,12 @@ def test_nd_neutral_url(all_cites):
     assert any("ndcourts" in u for u in urls)
 
 
-def test_nw2d_ndcourts_search_url(all_cites):
+def test_nw2d_courtlistener_url(all_cites):
     matches = _find(all_cites, "585 N.W. 2d 123")
     assert len(matches) >= 1
     urls = [s.url for s in matches[0].sources]
-    assert any("ndcourts.gov" in u for u in urls)
+    assert any("courtlistener.com" in u for u in urls)
+    assert all("ndcourts.gov" not in u for u in urls)
 
 
 def test_usc_url(all_cites):

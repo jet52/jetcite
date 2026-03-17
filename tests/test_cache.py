@@ -518,7 +518,7 @@ def test_fetch_and_cache_downloads(tmp_path):
     cite = _nd_opinion()
 
     mock_resp = MagicMock()
-    mock_resp.text = "# 2024 ND 156\nFetched opinion."
+    mock_resp.text = "<h1>2024 ND 156</h1><p>Fetched opinion.</p>"
     mock_resp.headers = {"content-type": "text/html; charset=utf-8"}
     mock_resp.raise_for_status = MagicMock()
 
@@ -527,7 +527,10 @@ def test_fetch_and_cache_downloads(tmp_path):
 
     assert path is not None
     assert path.is_file()
-    assert path.read_text() == "# 2024 ND 156\nFetched opinion."
+    # HTML should be converted to markdown
+    content = path.read_text()
+    assert "2024 ND 156" in content
+    assert "<h1>" not in content
     mock_get.assert_called_once()
 
     # Should have added a local source

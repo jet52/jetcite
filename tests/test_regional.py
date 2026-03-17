@@ -8,10 +8,8 @@ def test_nw2d():
     results = m.find_all("585 N.W.2d 123")
     assert len(results) == 1
     assert results[0].normalized == "585 N.W. 2d 123"
-    # ndcourts.gov is primary source for NW2d
-    assert "ndcourts.gov" in results[0].sources[0].url
-    # courtlistener is secondary
-    assert any("courtlistener.com" in s.url for s in results[0].sources)
+    # CourtListener is the source for all NW citations
+    assert "courtlistener.com" in results[0].sources[0].url
 
 
 def test_a3d():
@@ -79,24 +77,22 @@ def test_nd_reports_not_ndcc():
     assert len(nd_report_cites) == 0
 
 
-def test_nw3d_ndcourts_search():
-    """N.W.3d should get ndcourts.gov search URL."""
+def test_nw3d_courtlistener_only():
+    """N.W.3d should use CourtListener, not ndcourts.gov."""
     m = RegionalReporterMatcher()
     results = m.find_all("993 N.W.3d 374")
     assert len(results) == 1
-    assert any("ndcourts.gov" in s.url for s in results[0].sources)
-    ndcourts_src = [s for s in results[0].sources if s.name == "ndcourts"][0]
-    assert "cit1=993" in ndcourts_src.url
-    assert "citType=NW3d" in ndcourts_src.url
-    assert "cit2=374" in ndcourts_src.url
+    assert "courtlistener.com" in results[0].sources[0].url
+    assert all("ndcourts.gov" not in s.url for s in results[0].sources)
 
 
-def test_nw_first_series_ndcourts():
-    """N.W. first series should get ndcourts.gov search URL."""
+def test_nw_first_series_courtlistener_only():
+    """N.W. first series should use CourtListener, not ndcourts.gov."""
     m = RegionalReporterMatcher()
     results = m.find_all("100 N.W. 500")
     assert len(results) == 1
-    assert any("ndcourts.gov" in s.url for s in results[0].sources)
+    assert "courtlistener.com" in results[0].sources[0].url
+    assert all("ndcourts.gov" not in s.url for s in results[0].sources)
 
 
 def test_a3d_no_ndcourts():

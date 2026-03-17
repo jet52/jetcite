@@ -250,6 +250,12 @@ def fetch_and_cache(
     content = resp.text
     content_type = resp.headers.get("content-type", "text/html").split(";")[0].strip()
 
+    # Convert HTML to markdown for readable caching
+    if content_type == "text/html":
+        from markdownify import markdownify
+        content = markdownify(content, strip=["img", "script", "style"]).strip()
+        content_type = "text/markdown"
+
     path = cache_content(citation, content, refs_dir, source_url=source_url,
                          content_type=content_type)
     if path is not None:
