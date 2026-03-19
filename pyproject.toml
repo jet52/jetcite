@@ -9,7 +9,7 @@ description = "American legal citation parser and linker"
 requires-python = ">=3.11"
 dependencies = [
     "click>=8.0",
-    "httpx>=0.27",
+    "httpx[socks]>=0.27",
     "markdownify>=0.14",
 ]
 
