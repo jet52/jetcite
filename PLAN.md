@@ -439,7 +439,7 @@ When a new state module is added, the implementer should research:
 7. ~~Resolver~~ — URL generation, optional HTTP verification
 8. ~~Scanner~~ — Batch scanning, deduplication, position tracking
 9. ~~CLI~~ — Single and batch modes, url/json/table output, all flags
-10. ~~Tests~~ — 56 tests passing (now 161 total)
+10. ~~Tests~~ — 56 tests passing (now 196 total)
 
 ### Phase 1.5: Parallel Citations + ND History — COMPLETE (v0.2.0)
 
@@ -496,6 +496,23 @@ Wire the cache module into lookup/scan_text and CLI.
 4. ~~**Tests**~~ for fetch_and_cache, CLI --refs-dir flag, lookup/scan_text
    with refs_dir (8 new tests, 169 total)
 
+### Phase 2.5: Skill Packaging + URL Resolution — COMPLETE (v1.0.0–v1.4.0)
+
+1. ~~**Skill packaging**~~ (v1.0.0) — standalone skill zip for
+   `~/.claude/skills/jetcite-skill/` with `jetcite_tool.py` CLI wrapper
+2. ~~**Auto-update check**~~ (v1.1.0) — `check_update.py` for skill sessions
+3. ~~**Direct ndcourts.gov URLs**~~ (v1.2.0) — `resolve_nd_opinion_url()`
+   fetches the search page and extracts the direct PDF opinion URL
+   (e.g., `/supreme-court/opinions/171302`)
+4. ~~**Three-tier cache layout**~~ (v1.3.0) — `opin/` for ND cases,
+   `federal/` for federal reporters, `reporter/` for all others; reporter
+   subtype distinction in `_citation_path()`
+5. ~~**HTML-to-markdown caching**~~ (v1.4.0) — `fetch_and_cache()` converts
+   HTML content to markdown via `markdownify` for readable local cache
+6. ~~**CourtListener for all NW cites**~~ (v1.4.0) — NW/NW2d/NW3d citations
+   now include CourtListener URLs alongside the ndcourts.gov search URL
+7. ~~196 tests passing~~
+
 ### Phase 3: Expand State Coverage
 
 Add state modules as needed. Priority candidates:
@@ -546,12 +563,12 @@ Run jetcite as a single MCP server that all tools connect to.
 
 ## Known Bugs
 
-### ~~ndcourts.gov ND opinion URLs return 404~~ — FIXED 2026-03-14
+### ~~ndcourts.gov ND opinion URLs return 404~~ — FIXED v1.2.0
 
-Updated `nd_opinion_url()` to use the search URL pattern
-(`/supreme-court/opinions?cit1=...&citType=ND&cit2=...`) instead of the
-direct-link pattern (`/supreme-court/opinion/{year}ND{number}`) which returns
-404.
+Updated to a two-step approach: `nd_opinion_url()` generates the search URL,
+and `resolve_nd_opinion_url()` fetches it and extracts the direct PDF link
+(e.g., `/supreme-court/opinions/171302`). The search URL is used as a
+fallback when the direct link can't be resolved.
 
 ---
 
@@ -589,7 +606,8 @@ jetcite should:
 
 ### Runtime
 - `click` — CLI framework
-- `httpx` — async HTTP for verification mode
+- `httpx` — HTTP for verification mode and URL resolution
+- `markdownify` — HTML-to-markdown conversion for cache content
 
 ### Optional
 - `pyperclip` — cross-platform clipboard support (`pip install jetcite[clipboard]`)
@@ -601,7 +619,7 @@ jetcite should:
 ### No dependency on
 - Any PDF library (consuming projects handle their own document formats)
 - Any AI/LLM library (pure regex parsing)
-- Any database (stateless operation)
+- Any database (file-based cache only)
 
 ---
 
@@ -664,9 +682,8 @@ Ported:
 - ~~Deduplication logic~~
 - ~~Citation record structure~~
 
-Remaining (Phase 2):
-- ~~Local file resolution logic (`resolve_local()`)~~
-- Search hints for locating text within cached files
+Remaining:
+- Search hints for locating text within cached files (Phase 4)
 - Integration: replace nd_cite_check.py's ~800 lines of regex with
   `from jetcite import scan_text`
 
@@ -675,7 +692,7 @@ Remaining (Phase 2):
 Ported:
 - ~~Rate limiting approach~~
 
-Remaining (Phase 2):
+Remaining:
 - Multi-source verification chain (local → web → API)
 - CourtListener API interaction (citation-lookup endpoint)
 
@@ -683,8 +700,8 @@ Remaining (Phase 2):
 
 ## Integration Roadmap
 
-After Phase 2 (local reference cache) is complete, update these projects to
-use jetcite as their citation engine:
+With cache integration and skill packaging complete (v1.4.0), these projects
+can be updated to use jetcite as their citation engine:
 
 ### jetredline — nd_cite_check.py
 - Replace ~800 lines of regex patterns with `from jetcite import scan_text`

@@ -201,6 +201,26 @@ Each `Source` has:
 | `url` | `str` | Generated URL |
 | `verified` | `bool \| None` | `None` = not checked, `True`/`False` = HTTP result |
 
+## Caching
+
+jetcite includes a local reference cache (`~/refs/`) that stores fetched citation content for offline access and faster lookups.
+
+```bash
+# Fetch and cache a citation
+jetcite --fetch "2024 ND 156" --refs-dir ~/refs
+
+# Check local cache first, then fall back to web
+jetcite --refs-dir ~/refs "2024 ND 156"
+jetcite --scan document.md --refs-dir ~/refs
+```
+
+Three-tier case layout:
+- `opin/` — ND cases (neutral cites and historical ND/NW reporters)
+- `federal/` — federal case reporters (U.S., F.3d, F. Supp., etc.)
+- `reporter/` — all other state and regional reporters
+
+HTML content is automatically converted to markdown via `markdownify` for readable caching. Metadata sidecars (`.meta.json`) track source URL, fetch time, and staleness.
+
 ## Supported Citations
 
 ### Federal
@@ -229,7 +249,7 @@ Each `Source` has:
 
 | Source | URL | Used for |
 |--------|-----|----------|
-| ndcourts.gov | Direct opinion links, rule links, reporter search | ND opinions, ND rules, NW/NW2d/NW3d lookup |
+| ndcourts.gov | Direct opinion PDFs, rule links, reporter search | ND opinions, ND rules, NW/NW2d/NW3d lookup |
 | ndlegis.gov | PDF links with named destinations | NDCC, NDAC |
 | ndconst.org | Article/section URLs | ND Constitution |
 | govinfo.gov | USC section links | U.S. Code |
