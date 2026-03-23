@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import platform
+import subprocess
 import sys
 import webbrowser
+from importlib.metadata import version
 from pathlib import Path
 
 import click
@@ -56,6 +59,7 @@ def _format_json(citations: list[Citation]) -> str:
 
 
 @click.command()
+@click.version_option(version=version("jetcite"), prog_name="jetcite")
 @click.argument("citation", required=False)
 @click.option("--scan", "scan_file", type=str,
               help="Scan a document file for citations (use '-' for stdin).")
@@ -99,13 +103,27 @@ def main(
             fmt = "table"
     elif from_clipboard:
         try:
-            import pyperclip
-            citation = pyperclip.paste().strip()
-        except ImportError:
-            click.echo("Error: install pyperclip for clipboard support: pip install pyperclip",
-                        err=True)
+            system = platform.system()
+            if system == "Darwin":
+                result = subprocess.run(["pbpaste"], capture_output=True, text=True, check=True)
+            elif system == "Linux":
+                result = subprocess.run(
+                    ["xclip", "-selection", "clipboard", "-o"],
+                    capture_output=True, text=True, check=True,
+                )
+            elif system == "Windows":
+                result = subprocess.run(
+                    ["powershell", "-command", "Get-Clipboard"],
+                    capture_output=True, text=True, check=True,
+                )
+            else:
+                click.echo(f"Error: clipboard not supported on {system}", err=True)
+                sys.exit(1)
+            citation = result.stdout.strip()
+        except FileNotFoundError:
+            click.echo("Error: clipboard command not found (pbpaste/xclip/powershell)", err=True)
             sys.exit(1)
-        except pyperclip.PyperclipException as e:
+        except subprocess.CalledProcessError as e:
             click.echo(f"Error: could not read from clipboard: {e}", err=True)
             sys.exit(1)
 
