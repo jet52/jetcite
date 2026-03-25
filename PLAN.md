@@ -513,7 +513,184 @@ Wire the cache module into lookup/scan_text and CLI.
    now include CourtListener URLs alongside the ndcourts.gov search URL
 7. ~~196 tests passing~~
 
-### Phase 3: Expand State Coverage
+### Phase 3: Source-Specific Fetching & Markdown Caching — IN PROGRESS (v1.5.0)
+
+**Goal:** When `fetch_and_cache()` is called for a citation without a local copy,
+fetch the content from the best available online source and cache it as a
+well-formatted markdown file. The current implementation does a raw `httpx.get()`
+and passes the result through `markdownify`, which produces unusable output from
+complex pages (courtlistener, justia). Each source needs a dedicated content
+extractor.
+
+**Motivation:** The jetredline cite review UI needs cached content for the source
+pane. ND sources (ndcourts.gov, ndlegis.gov) serve PDFs that render in iframes,
+but federal sources (courtlistener, justia) block iframes. Cached markdown gives
+us a local fallback and enables offline verification. Also powers Pass 3B
+case-name verification (comparing draft case names against official captions).
+
+#### Step 1: Define markdown format standards — DONE
+
+Each cached file should follow a consistent format:
+
+**Case opinions:**
+```markdown
+# [Case Name]
+
+**Citation:** [normalized citation]
+**Court:** [court name]
+**Date:** [decision date]
+**Source:** [URL fetched from]
+
+---
+
+[Opinion text, preserving paragraph structure]
+[¶N] markers where available (ND opinions)
+Page breaks marked where available (federal reporters)
+```
+
+**Statutes:**
+```markdown
+# [Code] § [Section]
+
+**Title:** [title name]
+**Effective:** [date if available]
+**Source:** [URL]
+
+---
+
+[Section text]
+```
+
+#### Step 2: Source-specific content extractors — PARTIAL
+
+Each extractor takes a URL or citation components and returns `(markdown: str, metadata: dict)`.
+
+| Source | Module | Content | Extraction approach |
+|--------|--------|---------|-------------------|
+| **CourtListener** | `sources/courtlistener.py` | Case opinions | ~~REST API v4 `/api/rest/v4/search/` with citation query → opinion HTML → extract opinion text from `html_with_citations` field. Falls back to `/c/` redirect → scrape opinion div.~~ **DONE** |
+| **Justia** | `sources/justia.py` | SCOTUS opinions | ~~Fetch opinion page → extract text from `#tab-opinion` div → strip nav/sidebar.~~ **DONE** |
+| **Google Scholar** | `sources/scholar.py` (new) | All case law | Fetch case page → extract opinion text. No API; HTML scraping. May need headers/cookies. Lower priority — use as fallback. |
+| **ndcourts.gov** | `sources/ndcourts.py` | ND opinions (PDF) | Already have markdown for 1997–2026. For new opinions: fetch PDF → `pdftotext` or `pikepdf` → clean up → markdown. |
+| **ndlegis.gov** | `sources/ndlegis.py` | NDCC, NDAC (PDF) | Already have markdown for most titles. For missing sections: fetch PDF → extract section text around `#nameddest` target. |
+| **Cornell LII** | `sources/cornell.py` | USC, federal rules | Fetch page → extract statutory text from content div |
+| **govinfo.gov** | `sources/govinfo.py` | USC, CFR | Fetch HTML/XML → extract section text |
+| **eCFR** | `sources/ecfr.py` | CFR | Fetch page → extract regulation text |
+
+**Implementation order** (by impact on jetredline cite review):
+1. CourtListener (covers 34/69 cites in Baker test case — all state reporters + federal reporters)
+2. Justia (covers 5/69 — SCOTUS cites)
+3. ndcourts.gov PDF extraction (for opinions not yet in ~/refs/)
+4. Cornell/govinfo/eCFR (statutes — lower priority, already have NDCC locally)
+
+#### Step 3: Router in `fetch_and_cache()` — DONE
+
+Replace the generic `markdownify` approach with source-aware routing:
+
+```python
+# In fetch_and_cache():
+from urllib.parse import urlparse
+
+_EXTRACTORS = {
+    "www.courtlistener.com": _fetch_courtlistener,
+    "supreme.justia.com": _fetch_justia,
+    "www.ndcourts.gov": _fetch_ndcourts,
+    "ndlegis.gov": _fetch_ndlegis,
+    "www.law.cornell.edu": _fetch_cornell,
+    "www.govinfo.gov": _fetch_govinfo,
+    "www.ecfr.gov": _fetch_ecfr,
+}
+
+def fetch_and_cache(citation, refs_dir=None, timeout=10.0):
+    # ... existing cache-check logic ...
+    host = urlparse(source_url).netloc
+    extractor = _EXTRACTORS.get(host, _fetch_generic)
+    content, metadata = extractor(source_url, citation, timeout)
+    if content:
+        return cache_content(citation, content, refs_dir, ...)
+```
+
+#### Step 4: CourtListener extractor (priority)
+
+Two approaches, try in order:
+
+1. **API search** (preferred): `GET /api/rest/v4/search/?type=o&cite={volume}+{reporter}+{page}`
+   Returns opinion metadata + `html_with_citations` field containing the opinion text
+   with hyperlinked citations. Strip HTML tags → clean markdown. No auth needed for
+   basic search (5000 req/day).
+
+2. **Scrape fallback**: Follow the `/c/` redirect URL → lands on opinion page →
+   extract text from the opinion content div.
+
+The API approach is better because it returns structured data (case name, date,
+court, docket number) that we can use for the markdown header.
+
+**CourtListener API response (relevant fields):**
+```json
+{
+  "caseName": "State v. Baker",
+  "dateFiled": "2026-03-15",
+  "court": "North Dakota Supreme Court",
+  "html_with_citations": "<p>...</p>",
+  "plain_text": "..."
+}
+```
+
+#### Step 5: CLI command for batch caching — DONE
+
+```bash
+# Scan a document and cache all citations that aren't local
+jetcite cache --file opinion.md --refs-dir ~/refs
+
+# Cache a single citation
+jetcite cache "585 N.W.2d 123" --refs-dir ~/refs
+
+# Dry run — show what would be fetched
+jetcite cache --file opinion.md --refs-dir ~/refs --dry-run
+
+# Report cache status for a document
+jetcite cache --file opinion.md --refs-dir ~/refs --status
+```
+
+Output: table showing each citation, whether it's cached, cache age, source URL.
+
+#### Step 6: Tests — DONE
+
+- ~~**Unit tests per extractor**: Mock HTTP responses, verify markdown output format~~
+- ~~**Integration test**: `fetch_and_cache()` router with mocked extractors~~
+- ~~**CLI test**: `jetcite cache` dry-run, status, file scanning~~
+- 222 tests passing (196 existing + 26 new)
+
+#### Step 7: Re-vendor into jetredline
+
+After caching works in jetcite:
+```bash
+cd ~/code/jetredline
+make vendor-jetcite   # copies from ../jetcite/src/jetcite
+make test             # verify nothing broke
+```
+
+Update jetredline cite_review.py to optionally show cached markdown content
+alongside the iframe source view, or as a fallback when iframes are blocked.
+
+#### Dependencies
+
+- `httpx` (already installed)
+- Remove `markdownify` dependency — replaced by source-specific extractors
+- Consider `beautifulsoup4` for HTML parsing (more robust than regex for
+  extracting content from complex pages)
+
+#### Open questions
+
+- Should `fetch_and_cache()` be called automatically during `nd_cite_check.py`
+  runs, or only on demand via CLI?
+- Rate limiting strategy for CourtListener (5000/day is generous but should
+  still be respectful — 1 req/sec default)
+- Should PDF-to-text extraction (`pdftotext` / `pikepdf`) be in jetcite or
+  left to consuming projects? Jetcite currently has no PDF dependency.
+
+---
+
+### Phase 3.5: Expand State Coverage
 
 Add state modules as needed. Priority candidates:
 - Minnesota (8th Circuit neighbor, N.W.2d)
@@ -527,7 +704,7 @@ Each state module adds:
 - State court rule regex + URL builder (if applicable)
 - State constitution regex + URL builder
 
-### Phase 4: Enhanced Features
+### Phase 4: Enhanced Features (unchanged from original)
 
 - **Parallel citation validation** — define which parallel reporters are
   expected for a given jurisdiction and year range, then flag citations that
