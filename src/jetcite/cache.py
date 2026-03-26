@@ -146,8 +146,12 @@ def cache_content(
     refs_dir: Path | None = None,
     source_url: str | None = None,
     content_type: str = "text/markdown",
+    raw_html: str | None = None,
 ) -> Path | None:
     """Write content to the local cache and create a .meta.json sidecar.
+
+    If raw_html is provided, writes a .html sibling file alongside the
+    markdown for archival purposes.
 
     Returns the path written, or None if the citation can't be mapped to a path.
     """
@@ -161,6 +165,11 @@ def cache_content(
     full = refs_dir / rel
     full.parent.mkdir(parents=True, exist_ok=True)
     full.write_text(content, encoding="utf-8")
+
+    # Write raw HTML sibling if available
+    if raw_html:
+        html_path = full.with_suffix(".html")
+        html_path.write_text(raw_html, encoding="utf-8")
 
     # Write sidecar metadata
     meta = {
@@ -274,6 +283,7 @@ def fetch_and_cache(
 
     # Find a web source URL and try source-specific extractors first
     content = None
+    raw_html = None
     source_url = None
 
     for s in citation.sources:
@@ -281,7 +291,7 @@ def fetch_and_cache(
             continue
         extractor = _get_extractor(s.url)
         if extractor is not None:
-            content, _meta = extractor(s.url, citation, timeout)
+            content, _meta, raw_html = extractor(s.url, citation, timeout)
             if content:
                 source_url = s.url
                 break
@@ -301,7 +311,7 @@ def fetch_and_cache(
         return None
 
     path = cache_content(citation, content, refs_dir, source_url=source_url,
-                         content_type="text/markdown")
+                         content_type="text/markdown", raw_html=raw_html)
     if path is not None:
         add_local_source(citation, path)
     return path

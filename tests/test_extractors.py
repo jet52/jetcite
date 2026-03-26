@@ -188,7 +188,7 @@ def test_citation_lookup_success():
 
     with patch("jetcite.sources.courtlistener.httpx.post", return_value=mock_lookup), \
          patch("jetcite.sources.courtlistener.httpx.get", return_value=mock_opinion):
-        content, meta = _fetch_via_citation_lookup(
+        content, meta, _html = _fetch_via_citation_lookup(
             volume="585", reporter="N.W.2d", page="123",
             normalized="585 N.W.2d 123",
             token="test-token",
@@ -209,7 +209,7 @@ def test_citation_lookup_no_results():
     mock_resp.json.return_value = []
 
     with patch("jetcite.sources.courtlistener.httpx.post", return_value=mock_resp):
-        content, meta = _fetch_via_citation_lookup(
+        content, meta, _html = _fetch_via_citation_lookup(
             volume="999", reporter="N.W.2d", page="999",
             normalized="999 N.W.2d 999",
             token="test-token",
@@ -228,7 +228,7 @@ def test_citation_lookup_404_status():
     ]
 
     with patch("jetcite.sources.courtlistener.httpx.post", return_value=mock_resp):
-        content, meta = _fetch_via_citation_lookup(
+        content, meta, _html = _fetch_via_citation_lookup(
             volume="999", reporter="N.W.2d", page="999",
             normalized="999 N.W.2d 999",
             token="test-token",
@@ -243,7 +243,7 @@ def test_citation_lookup_http_error():
     mock_resp.status_code = 500
 
     with patch("jetcite.sources.courtlistener.httpx.post", return_value=mock_resp):
-        content, meta = _fetch_via_citation_lookup(
+        content, meta, _html = _fetch_via_citation_lookup(
             volume="585", reporter="N.W.2d", page="123",
             normalized="585 N.W.2d 123",
             token="test-token",
@@ -268,7 +268,7 @@ def test_citation_lookup_opinion_plain_text_fallback():
 
     with patch("jetcite.sources.courtlistener.httpx.post", return_value=mock_lookup), \
          patch("jetcite.sources.courtlistener.httpx.get", return_value=mock_opinion):
-        content, meta = _fetch_via_citation_lookup(
+        content, meta, _html = _fetch_via_citation_lookup(
             volume="585", reporter="N.W.2d", page="123",
             normalized="585 N.W.2d 123",
             token="test-token",
@@ -289,7 +289,7 @@ def test_fetch_opinion_text_html_with_citations():
     }
 
     with patch("jetcite.sources.courtlistener.httpx.get", return_value=mock_resp):
-        text = _fetch_opinion_text(
+        text, _html = _fetch_opinion_text(
             "https://www.courtlistener.com/api/rest/v4/opinions/123/",
             {"Authorization": "Token test"},
             timeout=10.0,
@@ -308,7 +308,7 @@ def test_fetch_opinion_text_plain_text_fallback():
     }
 
     with patch("jetcite.sources.courtlistener.httpx.get", return_value=mock_resp):
-        text = _fetch_opinion_text(
+        text, _html = _fetch_opinion_text(
             "https://www.courtlistener.com/api/rest/v4/opinions/123/",
             {"Authorization": "Token test"},
             timeout=10.0,
@@ -323,7 +323,7 @@ def test_fetch_opinion_text_empty():
     mock_resp.json.return_value = {}
 
     with patch("jetcite.sources.courtlistener.httpx.get", return_value=mock_resp):
-        text = _fetch_opinion_text(
+        text, _html = _fetch_opinion_text(
             "https://www.courtlistener.com/api/rest/v4/opinions/123/",
             {"Authorization": "Token test"},
             timeout=10.0,
@@ -341,9 +341,9 @@ def test_fetch_courtlistener_prefers_lookup_when_token_set():
 
     with patch("jetcite.sources.courtlistener._get_token", return_value="test-token"), \
          patch("jetcite.sources.courtlistener._fetch_via_citation_lookup",
-               return_value=("# Mocked lookup result", {"case_name": "Test"})) as mock_lookup, \
+               return_value=("# Mocked lookup result", {"case_name": "Test"}, "<p>html</p>")) as mock_lookup, \
          patch("jetcite.sources.courtlistener._fetch_via_search") as mock_search:
-        content, meta = fetch_courtlistener(cite.sources[0].url, cite)
+        content, meta, _html = fetch_courtlistener(cite.sources[0].url, cite)
 
     mock_lookup.assert_called_once()
     mock_search.assert_not_called()
@@ -357,8 +357,8 @@ def test_fetch_courtlistener_falls_back_to_search_without_token():
     with patch("jetcite.sources.courtlistener._get_token", return_value=None), \
          patch("jetcite.sources.courtlistener._fetch_via_citation_lookup") as mock_lookup, \
          patch("jetcite.sources.courtlistener._fetch_via_search",
-               return_value=("# Search result", {"case_name": "Test"})) as mock_search:
-        content, meta = fetch_courtlistener(cite.sources[0].url, cite)
+               return_value=("# Search result", {"case_name": "Test"}, "<p>html</p>")) as mock_search:
+        content, meta, _html = fetch_courtlistener(cite.sources[0].url, cite)
 
     mock_lookup.assert_not_called()
     mock_search.assert_called_once()
@@ -371,10 +371,10 @@ def test_fetch_courtlistener_lookup_fail_falls_to_search():
 
     with patch("jetcite.sources.courtlistener._get_token", return_value="test-token"), \
          patch("jetcite.sources.courtlistener._fetch_via_citation_lookup",
-               return_value=(None, {})) as mock_lookup, \
+               return_value=(None, {}, None)) as mock_lookup, \
          patch("jetcite.sources.courtlistener._fetch_via_search",
-               return_value=("# Search fallback", {"case_name": "Test"})) as mock_search:
-        content, meta = fetch_courtlistener(cite.sources[0].url, cite)
+               return_value=("# Search fallback", {"case_name": "Test"}, "<p>html</p>")) as mock_search:
+        content, meta, _html = fetch_courtlistener(cite.sources[0].url, cite)
 
     mock_lookup.assert_called_once()
     mock_search.assert_called_once()
@@ -406,7 +406,7 @@ def test_fetch_via_search_success():
     mock_resp.json.return_value = _CL_SEARCH_RESPONSE
 
     with patch("jetcite.sources.courtlistener.httpx.get", return_value=mock_resp):
-        content, meta = _fetch_via_search("585 N.W.2d 123")
+        content, meta, _html = _fetch_via_search("585 N.W.2d 123")
 
     assert content is not None
     assert "# State v. Smith" in content
@@ -421,7 +421,7 @@ def test_fetch_via_search_no_results():
     mock_resp.json.return_value = {"results": []}
 
     with patch("jetcite.sources.courtlistener.httpx.get", return_value=mock_resp):
-        content, meta = _fetch_via_search("999 N.W.2d 999")
+        content, meta, _html = _fetch_via_search("999 N.W.2d 999")
 
     assert content is None
 
@@ -431,7 +431,7 @@ def test_fetch_via_search_http_error():
     mock_resp.status_code = 500
 
     with patch("jetcite.sources.courtlistener.httpx.get", return_value=mock_resp):
-        content, meta = _fetch_via_search("585 N.W.2d 123")
+        content, meta, _html = _fetch_via_search("585 N.W.2d 123")
 
     assert content is None
 
@@ -454,7 +454,7 @@ def test_fetch_via_search_plain_text_fallback():
     mock_resp.json.return_value = resp_data
 
     with patch("jetcite.sources.courtlistener.httpx.get", return_value=mock_resp):
-        content, meta = _fetch_via_search("100 N.W.2d 50")
+        content, meta, _html = _fetch_via_search("100 N.W.2d 50")
 
     assert content is not None
     assert "Plain text opinion content here." in content
@@ -481,7 +481,7 @@ def test_fetch_via_scrape_success():
     mock_resp.url = "https://www.courtlistener.com/opinion/12345/state-v-doe/"
 
     with patch("jetcite.sources.courtlistener.httpx.get", return_value=mock_resp):
-        content, meta = _fetch_via_scrape(
+        content, meta, _html = _fetch_via_scrape(
             "https://www.courtlistener.com/c/N.W.%202d/500/100/",
             "500 N.W.2d 100",
         )
@@ -499,7 +499,7 @@ def test_fetch_via_scrape_no_content():
     mock_resp.url = "https://www.courtlistener.com/opinion/12345/"
 
     with patch("jetcite.sources.courtlistener.httpx.get", return_value=mock_resp):
-        content, meta = _fetch_via_scrape(
+        content, meta, _html = _fetch_via_scrape(
             "https://www.courtlistener.com/c/N.W.%202d/500/100/",
             "500 N.W.2d 100",
         )
@@ -530,7 +530,7 @@ def test_fetch_justia_success():
 
     cite = _us_reports_cite()
     with patch("jetcite.sources.justia.httpx.get", return_value=mock_resp):
-        content, meta = fetch_justia(cite.sources[0].url, cite)
+        content, meta, _html = fetch_justia(cite.sources[0].url, cite)
 
     assert content is not None
     assert "# Terry v. Ohio" in content
@@ -548,7 +548,7 @@ def test_fetch_justia_no_opinion_div():
 
     cite = _us_reports_cite()
     with patch("jetcite.sources.justia.httpx.get", return_value=mock_resp):
-        content, meta = fetch_justia(cite.sources[0].url, cite)
+        content, meta, _html = fetch_justia(cite.sources[0].url, cite)
 
     assert content is None
 
@@ -559,7 +559,7 @@ def test_fetch_justia_http_error():
 
     with patch("jetcite.sources.justia.httpx.get",
                side_effect=httpx_mod.TimeoutException("timeout")):
-        content, meta = fetch_justia(cite.sources[0].url, cite)
+        content, meta, _html = fetch_justia(cite.sources[0].url, cite)
 
     assert content is None
 
@@ -582,7 +582,7 @@ def test_fetch_routes_to_courtlistener(tmp_path):
 
     with patch(
         "jetcite.sources.courtlistener.fetch_courtlistener",
-        return_value=(mock_content, {"case_name": "State v. Test"}),
+        return_value=(mock_content, {"case_name": "State v. Test"}, "<p>html</p>"),
     ) as mock_cl:
         path = fetch_and_cache(cite, refs_dir=tmp_path)
 
@@ -601,7 +601,7 @@ def test_fetch_routes_to_justia(tmp_path):
 
     with patch(
         "jetcite.sources.justia.fetch_justia",
-        return_value=(mock_content, {"case_name": "Terry v. Ohio"}),
+        return_value=(mock_content, {"case_name": "Terry v. Ohio"}, "<p>html</p>"),
     ) as mock_justia:
         path = fetch_and_cache(cite, refs_dir=tmp_path)
 
@@ -644,7 +644,7 @@ def test_fetch_tries_next_source_on_extractor_failure(tmp_path):
     # CL extractor fails
     with patch(
         "jetcite.sources.courtlistener.fetch_courtlistener",
-        return_value=(None, {}),
+        return_value=(None, {}, None),
     ):
         mock_resp = MagicMock()
         mock_resp.text = "<html><body><p>Fallback content</p></body></html>"

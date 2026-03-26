@@ -24,7 +24,7 @@ import re
 from urllib.parse import quote
 
 import httpx
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString, Tag
 
 _CL_BASE = "https://www.courtlistener.com"
 _LOOKUP_URL = f"{_CL_BASE}/api/rest/v4/citation-lookup/"
@@ -59,7 +59,12 @@ def courtlistener_neutral_url(jurisdiction: str, year: str, number: str) -> str:
 
 
 def _clean_html_to_markdown(html: str) -> str:
-    """Convert opinion HTML to clean markdown, preserving paragraph structure."""
+    """Convert opinion HTML to clean markdown, preserving all text content.
+
+    Walks the DOM tree recursively to capture text in any element, not just
+    a fixed set of tags. This avoids dropping content wrapped in <div>, <span>,
+    or bare text nodes.
+    """
     soup = BeautifulSoup(html, "html.parser")
 
     # Remove footnote markers and other cruft
@@ -67,29 +72,108 @@ def _clean_html_to_markdown(html: str) -> str:
         if tag.get("class") and "footnote" in " ".join(tag.get("class", [])):
             tag.decompose()
 
-    lines = []
-    for el in soup.find_all(["p", "h1", "h2", "h3", "h4", "blockquote", "li"]):
-        text = el.get_text(separator=" ", strip=True)
-        if not text:
-            continue
-        if el.name.startswith("h"):
-            level = int(el.name[1])
-            lines.append(f"{'#' * level} {text}")
-        elif el.name == "blockquote":
-            lines.append(f"> {text}")
-        elif el.name == "li":
-            lines.append(f"- {text}")
-        else:
-            lines.append(text)
+    # Remove scripts, styles, nav
+    for tag in soup.find_all(["script", "style", "nav"]):
+        tag.decompose()
 
-    return "\n\n".join(lines)
+    # Convert page-number tags to bracketed references so the asterisk
+    # doesn't open spurious markdown italics (e.g. *380 -> [*380])
+    for pn in soup.find_all("page-number"):
+        label = pn.get("label", pn.get_text(strip=True))
+        pn.replace_with(f" [{label}] ")
+
+    return _walk_to_markdown(soup)
+
+
+# Inline tags whose children should be flattened into a single text run
+_INLINE_TAGS = frozenset({
+    "a", "abbr", "b", "bdi", "bdo", "br", "cite", "code", "data",
+    "del", "dfn", "em", "i", "ins", "kbd", "mark", "q", "rp", "rt",
+    "ruby", "s", "samp", "small", "span", "strong", "sub", "sup",
+    "time", "u", "var", "wbr",
+    # CourtListener-specific inline elements
+    "footnotemark", "footnote", "author",
+})
+
+
+def _walk_to_markdown(element) -> str:
+    """Recursively walk DOM and convert to markdown, capturing all text."""
+    blocks: list[str] = []
+    _collect_blocks(element, blocks, depth=0)
+    # Deduplicate consecutive blank lines
+    lines = "\n\n".join(b for b in blocks if b)
+    return lines.strip()
+
+
+def _collect_blocks(element, blocks: list[str], depth: int) -> None:
+    """Collect text blocks from the DOM tree."""
+    if isinstance(element, NavigableString):
+        text = element.get_text(strip=False).strip()
+        if text:
+            blocks.append(text)
+        return
+
+    if not isinstance(element, Tag):
+        return
+
+    tag = element.name
+
+    # Headings
+    if tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
+        level = int(tag[1])
+        text = element.get_text(separator=" ", strip=True)
+        if text:
+            blocks.append(f"{'#' * level} {text}")
+        return
+
+    # Blockquotes — recurse into children (not self) to avoid infinite loop
+    if tag == "blockquote":
+        child_blocks: list[str] = []
+        for child in element.children:
+            _collect_blocks(child, child_blocks, depth + 1)
+        inner = "\n\n".join(b for b in child_blocks if b)
+        if inner:
+            quoted = "\n".join(f"> {line}" if line else ">" for line in inner.split("\n"))
+            blocks.append(quoted)
+        return
+
+    # Paragraph and list items — leaf blocks whose content is flattened
+    if tag in ("p", "li"):
+        text = element.get_text(separator=" ", strip=True)
+        if text:
+            prefix = "- " if tag == "li" else ""
+            blocks.append(f"{prefix}{text}")
+        return
+
+    # Pre/code blocks
+    if tag == "pre":
+        text = element.get_text()
+        if text.strip():
+            blocks.append(f"```\n{text.rstrip()}\n```")
+        return
+
+    # Inline elements — flatten into a single text run
+    if tag in _INLINE_TAGS:
+        text = element.get_text(separator=" ", strip=True)
+        if text:
+            blocks.append(text)
+        return
+
+    # Everything else (block-level, unknown/custom tags like <opinion>)
+    # — recurse into children so paragraph structure is preserved
+    child_blocks: list[str] = []
+    for child in element.children:
+        _collect_blocks(child, child_blocks, depth + 1)
+    text = "\n\n".join(b for b in child_blocks if b)
+    if text:
+        blocks.append(text)
 
 
 def fetch_courtlistener(
     source_url: str,
     citation: object,
     timeout: float = 10.0,
-) -> tuple[str | None, dict]:
+) -> tuple[str | None, dict, str | None]:
     """Fetch case opinion content from CourtListener.
 
     Strategy:
@@ -98,7 +182,7 @@ def fetch_courtlistener(
     2. Otherwise fall back to the search API (no auth, text inline)
     3. Last resort: scrape the /c/ redirect target
 
-    Returns (markdown_content, metadata_dict) or (None, {}) on failure.
+    Returns (markdown_content, metadata_dict, raw_html) or (None, {}, None) on failure.
     """
     normalized = citation.normalized if hasattr(citation, "normalized") else ""
     components = citation.components if hasattr(citation, "components") else {}
@@ -139,7 +223,7 @@ def _fetch_via_citation_lookup(
     normalized: str,
     token: str,
     timeout: float = 10.0,
-) -> tuple[str | None, dict]:
+) -> tuple[str | None, dict, str | None]:
     """Use the Citation Lookup REST API to find and fetch an opinion.
 
     POST /api/rest/v4/citation-lookup/ with volume/reporter/page
@@ -156,13 +240,13 @@ def _fetch_via_citation_lookup(
             timeout=timeout,
         )
         if resp.status_code >= 400:
-            return None, {}
+            return None, {}, None
         results = resp.json()
     except (httpx.HTTPError, httpx.TimeoutException, ValueError):
-        return None, {}
+        return None, {}, None
 
     if not results:
-        return None, {}
+        return None, {}, None
 
     # Find first result with status 200 and clusters
     hit = None
@@ -171,7 +255,7 @@ def _fetch_via_citation_lookup(
             hit = r
             break
     if not hit:
-        return None, {}
+        return None, {}, None
 
     cluster = hit["clusters"][0]
     case_name = cluster.get("case_name", "Unknown")
@@ -187,16 +271,17 @@ def _fetch_via_citation_lookup(
             sub_opinions = _get_sub_opinions(cluster_url, headers, timeout)
 
     body = None
+    raw_html = None
     for op in sub_opinions:
         op_url = op if isinstance(op, str) else op.get("resource_uri", "")
         if not op_url:
             continue
-        body = _fetch_opinion_text(op_url, headers, timeout)
+        body, raw_html = _fetch_opinion_text(op_url, headers, timeout)
         if body:
             break
 
     if not body:
-        return None, {}
+        return None, {}, None
 
     metadata = {
         "case_name": case_name,
@@ -212,7 +297,7 @@ def _fetch_via_citation_lookup(
         source="CourtListener Citation Lookup API",
         body=body,
     )
-    return md, metadata
+    return md, metadata, raw_html
 
 
 def _get_sub_opinions(cluster_url: str, headers: dict, timeout: float) -> list:
@@ -230,11 +315,13 @@ def _get_sub_opinions(cluster_url: str, headers: dict, timeout: float) -> list:
         return []
 
 
-def _fetch_opinion_text(opinion_url: str, headers: dict, timeout: float) -> str | None:
+def _fetch_opinion_text(opinion_url: str, headers: dict, timeout: float) -> tuple[str | None, str | None]:
     """Fetch opinion text from the opinions endpoint.
 
     Tries fields in preference order: html_with_citations, html,
     xml_harvard, plain_text.
+
+    Returns (markdown, raw_html) tuple.
     """
     if not opinion_url.startswith("http"):
         opinion_url = f"{_CL_BASE}{opinion_url}"
@@ -242,29 +329,29 @@ def _fetch_opinion_text(opinion_url: str, headers: dict, timeout: float) -> str 
     try:
         resp = httpx.get(opinion_url, headers=headers, timeout=timeout)
         if resp.status_code >= 400:
-            return None
+            return None, None
         data = resp.json()
     except (httpx.HTTPError, httpx.TimeoutException, ValueError):
-        return None
+        return None, None
 
     # Try HTML fields in preference order
     for field in ("html_with_citations", "html", "html_columbia",
                   "html_lawbox", "html_anon_2020"):
         html = data.get(field)
         if html:
-            return _clean_html_to_markdown(html)
+            return _clean_html_to_markdown(html), html
 
     # Try XML (Harvard Caselaw Access Project)
     xml = data.get("xml_harvard")
     if xml:
-        return _clean_html_to_markdown(xml)
+        return _clean_html_to_markdown(xml), xml
 
     # Plain text fallback
     plain = data.get("plain_text")
     if plain:
-        return plain.strip()
+        return plain.strip(), None
 
-    return None
+    return None, None
 
 
 # ── Search API fallback (no auth) ───────────────────────────────
@@ -273,7 +360,7 @@ def _fetch_opinion_text(opinion_url: str, headers: dict, timeout: float) -> str 
 def _fetch_via_search(
     cite_query: str,
     timeout: float = 10.0,
-) -> tuple[str | None, dict]:
+) -> tuple[str | None, dict, str | None]:
     """Fetch opinion from CourtListener search API (no auth needed)."""
     params = {"type": "o", "cite": cite_query}
 
@@ -286,14 +373,14 @@ def _fetch_via_search(
             headers={"Accept": "application/json"},
         )
         if resp.status_code >= 400:
-            return None, {}
+            return None, {}, None
         data = resp.json()
     except (httpx.HTTPError, httpx.TimeoutException, ValueError):
-        return None, {}
+        return None, {}, None
 
     results = data.get("results", [])
     if not results:
-        return None, {}
+        return None, {}, None
 
     hit = results[0]
     case_name = hit.get("caseName", "Unknown")
@@ -303,13 +390,14 @@ def _fetch_via_search(
     # Search API returns text inline
     html_content = hit.get("html_with_citations") or hit.get("html") or ""
     plain_text = hit.get("plain_text") or ""
+    raw_html = html_content or None
 
     if html_content:
         body = _clean_html_to_markdown(html_content)
     elif plain_text:
         body = plain_text.strip()
     else:
-        return None, {}
+        return None, {}, None
 
     metadata = {
         "case_name": case_name,
@@ -325,7 +413,7 @@ def _fetch_via_search(
         source="CourtListener Search API",
         body=body,
     )
-    return md, metadata
+    return md, metadata, raw_html
 
 
 # ── Scrape fallback ──────────────────────────────────────────────
@@ -343,14 +431,14 @@ def _fetch_via_scrape(
     url: str,
     normalized: str,
     timeout: float = 10.0,
-) -> tuple[str | None, dict]:
+) -> tuple[str | None, dict, str | None]:
     """Scrape opinion text by following a /c/ redirect URL."""
     try:
         resp = httpx.get(url, follow_redirects=True, timeout=timeout)
         if resp.status_code >= 400:
-            return None, {}
+            return None, {}, None
     except (httpx.HTTPError, httpx.TimeoutException):
-        return None, {}
+        return None, {}, None
 
     soup = BeautifulSoup(resp.text, "html.parser")
 
@@ -360,11 +448,12 @@ def _fetch_via_scrape(
         or soup.find(class_="opinion-content")
     )
     if not opinion_div:
-        return None, {}
+        return None, {}, None
 
-    body = _clean_html_to_markdown(str(opinion_div))
+    raw_html = str(opinion_div)
+    body = _clean_html_to_markdown(raw_html)
     if not body.strip():
-        return None, {}
+        return None, {}, None
 
     title_tag = soup.find("title")
     case_name = title_tag.get_text(strip=True) if title_tag else "Unknown"
@@ -380,7 +469,7 @@ def _fetch_via_scrape(
         source=str(resp.url),
         body=body,
     )
-    return md, metadata
+    return md, metadata, raw_html
 
 
 # ── Shared formatting ────────────────────────────────────────────
