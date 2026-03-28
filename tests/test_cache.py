@@ -396,6 +396,26 @@ def test_cache_content_creates_dirs(tmp_path):
     assert path.parent.is_dir()
 
 
+def test_cache_content_readonly_returns_none(tmp_path):
+    """cache_content returns None without error on a read-only refs dir."""
+    cite = _nd_opinion()
+    readonly_dir = tmp_path / "readonly_refs"
+    readonly_dir.mkdir()
+    readonly_dir.chmod(0o555)
+    result = cache_content(cite, "content", readonly_dir)
+    assert result is None
+    # Restore permissions for cleanup
+    readonly_dir.chmod(0o755)
+
+
+def test_cache_content_nonexistent_parent_readonly(tmp_path):
+    """cache_content returns None when parent can't be created."""
+    cite = _nd_opinion()
+    # Point at a path inside a non-existent dir on a read-only mount
+    result = cache_content(cite, "content", Path("/nonexistent/refs"))
+    assert result is None
+
+
 def test_cache_roundtrip(tmp_path):
     """Cache content, then resolve it."""
     cite = _nd_opinion()
