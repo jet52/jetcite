@@ -21,9 +21,9 @@ jobs:
       - name: Build skill zip
         run: |
           mkdir jetcite-skill
-          cp jetcite_tool.py jetcite-skill/
-          cp SKILL.md jetcite-skill/
+          cp skill/jetcite_tool.py skill/check_update.py skill/SKILL.md jetcite-skill/
           cp README.md jetcite-skill/
+          printf '[project]\nname = "jetcite-skill"\nversion = "%s"\n' "${{ steps.version.outputs.version }}" > jetcite-skill/pyproject.toml
           mkdir -p jetcite-skill/src
           cp -r src/jetcite jetcite-skill/src/jetcite
           cd jetcite-skill && zip -r ../jetcite-skill-${{ steps.version.outputs.version }}.zip .
