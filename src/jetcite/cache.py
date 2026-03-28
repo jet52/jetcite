@@ -14,6 +14,8 @@ from urllib.parse import urlparse
 import httpx
 
 from jetcite.models import Citation, CitationType, Source
+
+USER_AGENT = "jetcite/1.5 (legal-research-tool; https://github.com/jet52/jetcite)"
 from jetcite.patterns.base import roman_to_int
 
 # Staleness thresholds in days — informational only, not auto-refetch
@@ -243,7 +245,8 @@ def _fetch_generic(
 ) -> tuple[str | None, dict]:
     """Generic fetcher: download and convert HTML via markdownify."""
     try:
-        resp = httpx.get(source_url, follow_redirects=True, timeout=timeout)
+        resp = httpx.get(source_url, follow_redirects=True, timeout=timeout,
+                         headers={"User-Agent": USER_AGENT})
         resp.raise_for_status()
     except (httpx.HTTPError, httpx.TimeoutException):
         return None, {}
@@ -262,6 +265,7 @@ def fetch_and_cache(
     citation: Citation,
     refs_dir: Path | None = None,
     timeout: float = 10.0,
+    force: bool = False,
 ) -> Path | None:
     """Fetch citation content from its primary web source and cache locally.
 
@@ -269,15 +273,18 @@ def fetch_and_cache(
     to produce well-formatted markdown. Falls back to generic markdownify
     for unknown sources.
 
+    If force is True, re-fetches even when a local file already exists
+    (used for refreshing stale mutable content like statutes and regulations).
+
     Returns the cached file path, or None if fetching fails or the
     citation can't be mapped to a cache path.
     """
     if refs_dir is None:
         refs_dir = DEFAULT_REFS_DIR
 
-    # Don't fetch if already cached
+    # Don't fetch if already cached (unless forced)
     existing = resolve_local(citation, refs_dir)
-    if existing is not None:
+    if existing is not None and not force:
         add_local_source(citation, existing)
         return existing
 
