@@ -550,6 +550,41 @@ def test_fetch_and_cache_skips_if_cached(tmp_path):
     mock_get.assert_not_called()
 
 
+def test_fetch_and_cache_force_overwrites(tmp_path):
+    """fetch_and_cache with force=True should re-fetch even when cached."""
+    cite = _nd_opinion()
+    cache_content(cite, "old content", tmp_path)
+
+    mock_resp = MagicMock()
+    mock_resp.text = "<p>New content.</p>"
+    mock_resp.headers = {"content-type": "text/html; charset=utf-8"}
+    mock_resp.raise_for_status = MagicMock()
+
+    with patch("jetcite.cache.httpx.get", return_value=mock_resp) as mock_get:
+        path = fetch_and_cache(cite, refs_dir=tmp_path, force=True)
+
+    assert path is not None
+    assert "New content" in path.read_text()
+    mock_get.assert_called_once()
+
+
+def test_fetch_and_cache_sends_user_agent(tmp_path):
+    """fetch_and_cache should send a User-Agent header."""
+    cite = _nd_opinion()
+
+    mock_resp = MagicMock()
+    mock_resp.text = "<p>Opinion text.</p>"
+    mock_resp.headers = {"content-type": "text/html; charset=utf-8"}
+    mock_resp.raise_for_status = MagicMock()
+
+    with patch("jetcite.cache.httpx.get", return_value=mock_resp) as mock_get:
+        fetch_and_cache(cite, refs_dir=tmp_path)
+
+    call_kwargs = mock_get.call_args
+    assert "User-Agent" in call_kwargs.kwargs.get("headers", {})
+    assert "jetcite" in call_kwargs.kwargs["headers"]["User-Agent"]
+
+
 def test_fetch_and_cache_http_error(tmp_path):
     """fetch_and_cache should return None on HTTP error."""
     import httpx
