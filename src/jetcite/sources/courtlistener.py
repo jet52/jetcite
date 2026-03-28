@@ -24,7 +24,6 @@ import re
 from urllib.parse import quote
 
 import httpx
-from bs4 import BeautifulSoup, NavigableString, Tag
 
 _CL_BASE = "https://www.courtlistener.com"
 _LOOKUP_URL = f"{_CL_BASE}/api/rest/v4/citation-lookup/"
@@ -65,6 +64,8 @@ def _clean_html_to_markdown(html: str) -> str:
     a fixed set of tags. This avoids dropping content wrapped in <div>, <span>,
     or bare text nodes.
     """
+    from bs4 import BeautifulSoup
+
     soup = BeautifulSoup(html, "html.parser")
 
     # Remove footnote markers and other cruft
@@ -107,6 +108,8 @@ def _walk_to_markdown(element) -> str:
 
 def _collect_blocks(element, blocks: list[str], depth: int) -> None:
     """Collect text blocks from the DOM tree."""
+    from bs4 import NavigableString, Tag
+
     if isinstance(element, NavigableString):
         text = element.get_text(strip=False).strip()
         if text:
@@ -439,6 +442,8 @@ def _fetch_via_scrape(
             return None, {}, None
     except (httpx.HTTPError, httpx.TimeoutException):
         return None, {}, None
+
+    from bs4 import BeautifulSoup
 
     soup = BeautifulSoup(resp.text, "html.parser")
 

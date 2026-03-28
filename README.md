@@ -214,9 +214,13 @@ jetcite --refs-dir ~/refs "2024 ND 156"
 jetcite --scan document.md --refs-dir ~/refs
 ```
 
-Three-tier case layout:
-- `opin/` — ND cases (neutral cites and historical ND/NW reporters)
-- `federal/` — federal case reporters (U.S., F.3d, F. Supp., etc.)
+Jurisdiction-namespaced layout:
+- `nd/opin/` — ND cases (neutral cites and historical ND/NW reporters)
+- `nd/code/` — ND Century Code (statutes)
+- `nd/regs/` — ND Administrative Code (regulations)
+- `nd/cnst/` — ND Constitution
+- `nd/rule/` — ND Court Rules
+- `us/` — federal case reporters (U.S., F.3d, F. Supp., etc.), USC, CFR
 - `reporter/` — all other state and regional reporters
 
 HTML content is automatically converted to markdown via `markdownify` for readable caching. Metadata sidecars (`.meta.json`) track source URL, fetch time, and staleness.

@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 
 import httpx
-from bs4 import BeautifulSoup, NavigableString, Tag
 
 
 def us_reports_url(volume: str, page: str) -> str:
@@ -29,6 +28,8 @@ def fetch_justia(
             return None, {}, None
     except (httpx.HTTPError, httpx.TimeoutException):
         return None, {}, None
+
+    from bs4 import BeautifulSoup
 
     soup = BeautifulSoup(resp.text, "html.parser")
 
@@ -103,6 +104,8 @@ def _extract_text(element) -> str:
 
 def _collect_blocks(element, blocks: list[str]) -> None:
     """Collect text blocks from the DOM tree."""
+    from bs4 import NavigableString, Tag
+
     if isinstance(element, NavigableString):
         text = element.get_text(strip=False).strip()
         if text:

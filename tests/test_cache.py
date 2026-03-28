@@ -129,7 +129,7 @@ def test_reporter_dir_strips_apostrophes():
 
 def test_path_nd_neutral():
     p = _citation_path(_nd_opinion())
-    assert p == Path("opin/markdown/2024/2024ND156.md")
+    assert p == Path("nd/opin/markdown/2024/2024ND156.md")
 
 
 def test_path_nd_reporter_nw2d():
@@ -139,7 +139,7 @@ def test_path_nd_reporter_nw2d():
         normalized="355 N.W.2d 16",
         components={"volume": "355", "reporter": "N.W.2d", "page": "16"},
     )
-    assert _citation_path(cite) == Path("opin/NW2d/355/16.md")
+    assert _citation_path(cite) == Path("nd/opin/NW2d/355/16.md")
 
 
 def test_path_nd_reporter_nw():
@@ -149,7 +149,7 @@ def test_path_nd_reporter_nw():
         normalized="1 N.W. 100",
         components={"volume": "1", "reporter": "N.W.", "page": "100"},
     )
-    assert _citation_path(cite) == Path("opin/NW/1/100.md")
+    assert _citation_path(cite) == Path("nd/opin/NW/1/100.md")
 
 
 def test_path_nd_reporter_nd():
@@ -159,11 +159,11 @@ def test_path_nd_reporter_nd():
         normalized="50 N.D. 123",
         components={"volume": "50", "reporter": "N.D.", "page": "123"},
     )
-    assert _citation_path(cite) == Path("opin/ND/50/123.md")
+    assert _citation_path(cite) == Path("nd/opin/ND/50/123.md")
 
 
 def test_path_federal_scotus():
-    assert _citation_path(_federal_case()) == Path("federal/scotus/505/377.md")
+    assert _citation_path(_federal_case()) == Path("us/scotus/505/377.md")
 
 
 def test_path_federal_f3d():
@@ -173,7 +173,7 @@ def test_path_federal_f3d():
         normalized="500 F.3d 200",
         components={"volume": "500", "reporter": "F.3d", "page": "200"},
     )
-    assert _citation_path(cite) == Path("federal/F3d/500/200.md")
+    assert _citation_path(cite) == Path("us/F3d/500/200.md")
 
 
 def test_path_federal_sct():
@@ -183,7 +183,7 @@ def test_path_federal_sct():
         normalized="140 S. Ct. 1731",
         components={"volume": "140", "reporter": "S. Ct.", "page": "1731"},
     )
-    assert _citation_path(cite) == Path("federal/SCt/140/1731.md")
+    assert _citation_path(cite) == Path("us/SCt/140/1731.md")
 
 
 def test_path_federal_fsupp3d():
@@ -193,7 +193,7 @@ def test_path_federal_fsupp3d():
         normalized="300 F. Supp. 3d 100",
         components={"volume": "300", "reporter": "F. Supp. 3d", "page": "100"},
     )
-    assert _citation_path(cite) == Path("federal/FSupp3d/300/100.md")
+    assert _citation_path(cite) == Path("us/FSupp3d/300/100.md")
 
 
 def test_path_reporter_nw3d():
@@ -231,19 +231,19 @@ def test_path_reporter_a3d():
 
 
 def test_path_usc():
-    assert _citation_path(_usc_cite()) == Path("federal/usc/42/1983.md")
+    assert _citation_path(_usc_cite()) == Path("us/usc/42/1983.md")
 
 
 def test_path_ndcc():
-    assert _citation_path(_ndcc_cite()) == Path("ndcc/title-12.1/chapter-12.1-32.md")
+    assert _citation_path(_ndcc_cite()) == Path("nd/code/title-12.1/chapter-12.1-32.md")
 
 
 def test_path_nd_const():
-    assert _citation_path(_nd_const()) == Path("cnst/art-01/sec-20.md")
+    assert _citation_path(_nd_const()) == Path("nd/cnst/art-01/sec-20.md")
 
 
 def test_path_ndac():
-    assert _citation_path(_ndac_cite()) == Path("ndac/title-43/article-43-02/chapter-43-02-05.md")
+    assert _citation_path(_ndac_cite()) == Path("nd/regs/title-43/article-43-02/chapter-43-02-05.md")
 
 
 def test_path_cfr():
@@ -253,11 +253,11 @@ def test_path_cfr():
         normalized="29 C.F.R. § 1630.2",
         components={"title": "29", "section": "1630.2"},
     )
-    assert _citation_path(cite) == Path("federal/cfr/29/1630.2.md")
+    assert _citation_path(cite) == Path("us/cfr/29/1630.2.md")
 
 
 def test_path_court_rule():
-    assert _citation_path(_nd_court_rule()) == Path("rule/civil-procedure/rule-56.md")
+    assert _citation_path(_nd_court_rule()) == Path("nd/rule/civil-procedure/rule-56.md")
 
 
 def test_path_unknown_returns_none():
@@ -277,7 +277,7 @@ def test_resolve_local_not_cached(tmp_path):
 
 def test_resolve_local_found(tmp_path):
     cite = _nd_opinion()
-    path = tmp_path / "opin/markdown/2024/2024ND156.md"
+    path = tmp_path / "nd/opin/markdown/2024/2024ND156.md"
     path.parent.mkdir(parents=True)
     path.write_text("# 2024 ND 156\nOpinion text here.")
     assert resolve_local(cite, tmp_path) == path
@@ -285,7 +285,7 @@ def test_resolve_local_found(tmp_path):
 
 def test_resolve_local_federal_case(tmp_path):
     cite = _federal_case()
-    path = tmp_path / "federal/scotus/505/377.md"
+    path = tmp_path / "us/scotus/505/377.md"
     path.parent.mkdir(parents=True)
     path.write_text("opinion")
     assert resolve_local(cite, tmp_path) == path
@@ -293,7 +293,7 @@ def test_resolve_local_federal_case(tmp_path):
 
 def test_resolve_local_usc(tmp_path):
     cite = _usc_cite()
-    path = tmp_path / "federal/usc/42/1983.md"
+    path = tmp_path / "us/usc/42/1983.md"
     path.parent.mkdir(parents=True)
     path.write_text("statute")
     assert resolve_local(cite, tmp_path) == path
@@ -301,7 +301,7 @@ def test_resolve_local_usc(tmp_path):
 
 def test_resolve_local_ndcc(tmp_path):
     cite = _ndcc_cite()
-    path = tmp_path / "ndcc/title-12.1/chapter-12.1-32.md"
+    path = tmp_path / "nd/code/title-12.1/chapter-12.1-32.md"
     path.parent.mkdir(parents=True)
     path.write_text("chapter")
     assert resolve_local(cite, tmp_path) == path
@@ -309,7 +309,7 @@ def test_resolve_local_ndcc(tmp_path):
 
 def test_resolve_local_nd_const(tmp_path):
     cite = _nd_const()
-    path = tmp_path / "cnst/art-01/sec-20.md"
+    path = tmp_path / "nd/cnst/art-01/sec-20.md"
     path.parent.mkdir(parents=True)
     path.write_text("section")
     assert resolve_local(cite, tmp_path) == path
@@ -317,7 +317,7 @@ def test_resolve_local_nd_const(tmp_path):
 
 def test_resolve_local_court_rule(tmp_path):
     cite = _nd_court_rule()
-    path = tmp_path / "rule/civil-procedure/rule-56.md"
+    path = tmp_path / "nd/rule/civil-procedure/rule-56.md"
     path.parent.mkdir(parents=True)
     path.write_text("rule")
     assert resolve_local(cite, tmp_path) == path
@@ -325,21 +325,21 @@ def test_resolve_local_court_rule(tmp_path):
 
 def test_resolve_local_ndac(tmp_path):
     cite = _ndac_cite()
-    path = tmp_path / "ndac/title-43/article-43-02/chapter-43-02-05.md"
+    path = tmp_path / "nd/regs/title-43/article-43-02/chapter-43-02-05.md"
     path.parent.mkdir(parents=True)
     path.write_text("admin rule")
     assert resolve_local(cite, tmp_path) == path
 
 
 def test_resolve_local_nd_reporter(tmp_path):
-    """N.W.2d case resolves under opin/."""
+    """N.W.2d case resolves under nd/opin/."""
     cite = Citation(
         raw_text="355 N.W.2d 16",
         cite_type=CitationType.CASE, jurisdiction="us",
         normalized="355 N.W.2d 16",
         components={"volume": "355", "reporter": "N.W.2d", "page": "16"},
     )
-    path = tmp_path / "opin/NW2d/355/16.md"
+    path = tmp_path / "nd/opin/NW2d/355/16.md"
     path.parent.mkdir(parents=True)
     path.write_text("opinion")
     assert resolve_local(cite, tmp_path) == path
@@ -582,7 +582,7 @@ def test_fetch_and_cache_no_sources(tmp_path):
 def test_lookup_with_refs_dir(tmp_path):
     """lookup() with refs_dir adds local source when cached."""
     # Pre-cache a known citation
-    cached_path = tmp_path / "opin/markdown/2024/2024ND156.md"
+    cached_path = tmp_path / "nd/opin/markdown/2024/2024ND156.md"
     cached_path.parent.mkdir(parents=True)
     cached_path.write_text("cached opinion")
 
@@ -602,7 +602,7 @@ def test_lookup_without_refs_dir():
 def test_scan_text_with_refs_dir(tmp_path):
     """scan_text() with refs_dir adds local sources for cached citations."""
     # Pre-cache
-    cached_path = tmp_path / "opin/markdown/2024/2024ND156.md"
+    cached_path = tmp_path / "nd/opin/markdown/2024/2024ND156.md"
     cached_path.parent.mkdir(parents=True)
     cached_path.write_text("cached opinion")
 
