@@ -38,3 +38,31 @@ def test_us_const_flexible_spacing():
     results = m.find_all("US Const. amend. V")
     assert len(results) == 1
     assert results[0].normalized == "U.S. Const. amend. V"
+
+
+# ── Real citations from ND opinions ──────────────────────────────
+
+
+def test_real_amend_iv():
+    """U.S. Const. amend. IV — from 2024 ND 115."""
+    m = USConstitutionMatcher()
+    results = m.find_all("U.S. Const. amend. IV")
+    assert len(results) == 1
+    assert results[0].components["amendment"] == "IV"
+
+
+def test_real_amend_vi():
+    """U.S. Const. amend. VI — from 2020 ND 48."""
+    m = USConstitutionMatcher()
+    results = m.find_all("U.S. Const. amend. VI")
+    assert len(results) == 1
+    assert results[0].components["amendment"] == "VI"
+
+
+def test_real_amend_with_section():
+    """U.S. Const. amend. XIV, § 1 — due process clause."""
+    m = USConstitutionMatcher()
+    results = m.find_all("U.S. Const. amend. XIV, § 1")
+    assert len(results) == 1
+    assert results[0].components["amendment"] == "XIV"
+    assert results[0].components["section"] == "1"

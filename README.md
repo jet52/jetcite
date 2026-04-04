@@ -214,16 +214,14 @@ jetcite --refs-dir ~/refs "2024 ND 156"
 jetcite --scan document.md --refs-dir ~/refs
 ```
 
-Jurisdiction-namespaced layout:
-- `nd/opin/` — ND cases (neutral cites and historical ND/NW reporters)
-- `nd/code/` — ND Century Code (statutes)
-- `nd/regs/` — ND Administrative Code (regulations)
-- `nd/cnst/` — ND Constitution
-- `nd/rule/` — ND Court Rules
-- `us/` — federal case reporters (U.S., F.3d, F. Supp., etc.), USC, CFR
-- `reporter/` — all other state and regional reporters
+Content-type-centric layout:
+- `opin/{reporter}/` — all opinions (ND/, NW2d/, US/, F3d/, P2d/, etc.)
+- `statute/{code}/` — statutes (NDCC/, USC/)
+- `reg/{code}/` — regulations (NDAC/, CFR/)
+- `cnst/{jurisdiction}/` — constitutions (ND/, US/)
+- `rule/{set}/` — court rules (ndrcivp/, FRCP/, FRE/, etc.)
 
-HTML content is automatically converted to markdown via `markdownify` for readable caching. Metadata sidecars (`.meta.json`) track source URL, fetch time, and staleness.
+HTML and PDF content is automatically converted to markdown. Original downloads are preserved as dot-prefixed siblings (e.g., `.351.orig.html`). Metadata sidecars (`.meta.json`) track source URL, fetch time, content hash, ETag, and staleness.
 
 ## Supported Citations
 
