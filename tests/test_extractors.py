@@ -84,9 +84,16 @@ def test_router_unknown_host():
     assert extractor is None
 
 
-def test_router_ndcourts_no_extractor():
+def test_router_ndcourts():
+    """ndcourts.gov now has a dedicated extractor."""
     extractor = _get_extractor("https://www.ndcourts.gov/supreme-court/opinions/171302")
-    assert extractor is None
+    assert extractor is not None
+
+
+def test_router_cornell():
+    """Cornell LII has a dedicated extractor."""
+    extractor = _get_extractor("https://www.law.cornell.edu/rules/frcivp/rule_12")
+    assert extractor is not None
 
 
 # ── _clean_html_to_markdown ─────────────────────────────────────
@@ -614,8 +621,10 @@ def test_fetch_falls_back_to_generic(tmp_path):
     """Unknown host should fall back to generic markdownify."""
     cite = _govinfo_cite()
 
+    html = "<html><body><p>Section 1983 text</p></body></html>"
     mock_resp = MagicMock()
-    mock_resp.text = "<html><body><p>Section 1983 text</p></body></html>"
+    mock_resp.text = html
+    mock_resp.content = html.encode("utf-8")
     mock_resp.headers = {"content-type": "text/html"}
     mock_resp.raise_for_status = MagicMock()
 
@@ -646,8 +655,10 @@ def test_fetch_tries_next_source_on_extractor_failure(tmp_path):
         "jetcite.sources.courtlistener.fetch_courtlistener",
         return_value=(None, {}, None),
     ):
+        html = "<html><body><p>Fallback content</p></body></html>"
         mock_resp = MagicMock()
-        mock_resp.text = "<html><body><p>Fallback content</p></body></html>"
+        mock_resp.text = html
+        mock_resp.content = html.encode("utf-8")
         mock_resp.headers = {"content-type": "text/html"}
         mock_resp.raise_for_status = MagicMock()
 

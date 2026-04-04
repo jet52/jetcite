@@ -51,3 +51,64 @@ def test_br():
     results = m.find_all("300 B.R. 50")
     assert len(results) == 1
     assert results[0].normalized == "300 B.R. 50"
+
+
+# ── Real citations from ND opinions ──────────────────────────────
+
+
+def test_real_f2d():
+    """392 F.2d 60 — from 2020 ND 114."""
+    m = FederalCaseMatcher()
+    results = m.find_all("392 F.2d 60")
+    assert len(results) == 1
+    assert results[0].components["volume"] == "392"
+    assert results[0].components["reporter"] == "F.2d"
+    assert results[0].components["page"] == "60"
+
+
+def test_real_f3d():
+    """152 F.3d 680 — from 2020 ND 124."""
+    m = FederalCaseMatcher()
+    results = m.find_all("152 F.3d 680")
+    assert len(results) == 1
+    assert results[0].normalized == "152 F.3d 680"
+
+
+def test_real_fsupp2d():
+    """903 F. Supp. 2d 333 — from 2024 ND 162."""
+    m = FederalCaseMatcher()
+    results = m.find_all("903 F. Supp. 2d 333")
+    assert len(results) == 1
+    assert results[0].components["reporter"] == "F. Supp. 2d"
+
+
+def test_real_frd():
+    """174 F.R.D. 643 — from ND opinions."""
+    m = FederalCaseMatcher()
+    results = m.find_all("174 F.R.D. 643")
+    assert len(results) == 1
+    assert results[0].components["reporter"] == "F.R.D."
+
+
+def test_real_us_reports():
+    """466 U.S. 668 — Strickland v. Washington, from 2020 ND 128."""
+    m = FederalCaseMatcher()
+    results = m.find_all("466 U.S. 668")
+    assert len(results) == 1
+    assert "justia.com" in results[0].sources[0].url
+
+
+def test_real_s_ct():
+    """141 S. Ct. 2063 — Cedar Point Nursery, from 2024 ND 109."""
+    m = FederalCaseMatcher()
+    results = m.find_all("141 S. Ct. 2063")
+    assert len(results) == 1
+    assert results[0].components["reporter"] == "S. Ct."
+
+
+def test_real_l_ed_2d():
+    """128 L. Ed. 2d 767 — from 2024 ND opinions."""
+    m = FederalCaseMatcher()
+    results = m.find_all("128 L. Ed. 2d 767")
+    assert len(results) == 1
+    assert results[0].components["reporter"] == "L. Ed. 2d"

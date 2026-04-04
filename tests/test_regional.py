@@ -101,3 +101,43 @@ def test_a3d_no_ndcourts():
     results = m.find_all("200 A.3d 400")
     assert len(results) == 1
     assert all("ndcourts.gov" not in s.url for s in results[0].sources)
+
+
+# ── Real citations from ND opinions ──────────────────────────────
+
+
+def test_real_p2d():
+    """673 P.2d 387 — Everett v. Trunnell (Idaho 1983), from 2024 ND 138."""
+    m = RegionalReporterMatcher()
+    results = m.find_all("673 P.2d 387")
+    assert len(results) == 1
+    assert results[0].components["volume"] == "673"
+    assert results[0].components["page"] == "387"
+
+
+def test_real_sw3d():
+    """601 S.W.3d 168 — Carlisle v. Commonwealth (Ky. 2020), from 2024 ND 115."""
+    m = RegionalReporterMatcher()
+    results = m.find_all("601 S.W.3d 168")
+    assert len(results) == 1
+
+
+def test_real_ne3d():
+    """204 N.E.3d 681 — State v. Byrd (Ohio), from 2024 ND 115."""
+    m = RegionalReporterMatcher()
+    results = m.find_all("204 N.E.3d 681")
+    assert len(results) == 1
+
+
+def test_real_so2d():
+    """424 So.2d 1297 — Sheffield v. Exxon Corp. (Ala. 1982)."""
+    m = RegionalReporterMatcher()
+    results = m.find_all("424 So.2d 1297")
+    assert len(results) == 1
+
+
+def test_real_p3d():
+    """478 P.3d 164 — Miller v. Life Care Centers (Wyo. 2020), from 2024 ND 149."""
+    m = RegionalReporterMatcher()
+    results = m.find_all("478 P.3d 164")
+    assert len(results) == 1
