@@ -22,7 +22,7 @@ _add(r'(\d+)\s+N\.W\.\s?([23]d)\s+(\d+)', "N.W.{ed}", True)
 _add(r'(\d+)\s+A\.([23]d)\s+(\d+)', "A.{ed}", True)
 _add(r'(\d+)\s+N\.E\.\s?([23]d)\s+(\d+)', "N.E.{ed}", True)
 _add(r'(\d+)\s+S\.E\.\s?(?:(2d)\s+)?(\d+)', "S.E.{ed}", True)
-_add(r'(\d+)\s+So\.\s?(?:([23]d)\s+)?(\d+)', "So.{ed}", True)
+_add(r'(\d+)\s+So\.\s?(?:([23]d)\s+)?(\d+)', "So. {ed}", True)
 _add(r'(\d+)\s+S\.W\.\s?(?:([23]d)\s+)?(\d+)', "S.W.{ed}", True)
 _add(r'(\d+)\s+P\.([23]d)\s+(\d+)', "P.{ed}", True)
 
@@ -37,15 +37,15 @@ _add(r'(\d+)\s+So\.\s+(\d+)(?!d\b)', "So.", False)
 _add(r'(\d+)\s+S\.W\.\s+(\d+)(?!d\b)', "S.W.", False)
 
 # State-specific reporters
-_add(r'(\d+)\s+Cal\.\s?(?:(2d|3d|4th|5th)\s+)?(\d+)', "Cal.{ed}", True)
-_add(r'(\d+)\s+Cal\.\s?Rptr\.\s?(?:(2d|3d)\s+)?(\d+)', "Cal. Rptr.{ed}", True)
+_add(r'(\d+)\s+Cal\.\s?(?:(2d|3d|4th|5th)\s+)?(\d+)', "Cal. {ed}", True)
+_add(r'(\d+)\s+Cal\.\s?Rptr\.\s?(?:(2d|3d)\s+)?(\d+)', "Cal. Rptr. {ed}", True)
 _add(r'(\d+)\s+N\.Y\.(?:([23]d)\s+)?(\d+)', "N.Y.{ed}", True)
 _add(r'(\d+)\s+N\.Y\.S\.(?:([23]d)\s+)?(\d+)', "N.Y.S.{ed}", True)
-_add(r'(\d+)\s+Ohio\s+St\.\s?(?:([23]d)\s+)?(\d+)', "Ohio St.{ed}", True)
-_add(r'(\d+)\s+Ill\.\s?(?:(2d)\s+)?(\d+)', "Ill.{ed}", True)
+_add(r'(\d+)\s+Ohio\s+St\.\s?(?:([23]d)\s+)?(\d+)', "Ohio St. {ed}", True)
+_add(r'(\d+)\s+Ill\.\s?(?:(2d)\s+)?(\d+)', "Ill. {ed}", True)
 _add(r'(\d+)\s+Ill\.\s?Dec\.\s+(\d+)', "Ill. Dec.", False)
-_add(r'(\d+)\s+Wash\.\s?(?:(2d)\s+)?(\d+)', "Wash.{ed}", True)
-_add(r'(\d+)\s+Wash\.\s?App\.\s?(?:(2d)\s+)?(\d+)', "Wash. App.{ed}", True)
+_add(r'(\d+)\s+Wash\.\s?(?:(2d)\s+)?(\d+)', "Wash. {ed}", True)
+_add(r'(\d+)\s+Wash\.\s?App\.\s?(?:(2d)\s+)?(\d+)', "Wash. App. {ed}", True)
 
 # North Dakota Reports: 50 N.D. 123 (volumes 1-79, published 1890-1953)
 # Use a negative lookahead to avoid matching "N.D.C." (NDCC) or "N.D.A." (NDAC)
@@ -71,7 +71,7 @@ class RegionalReporterMatcher(BaseMatcher):
                     volume, page = m.group(1), m.group(3)
                     edition = m.group(2)
                     if edition:
-                        reporter = template.replace("{ed}", f" {edition}")
+                        reporter = template.replace("{ed}", edition)
                     else:
                         reporter = template.replace("{ed}", "")
                 else:

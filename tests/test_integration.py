@@ -242,16 +242,17 @@ def test_co_neutral(all_cites):
 
 
 # --- Regional Reporters ---
-# Note: normalization keeps spaces in reporter names (e.g., "N.W. 2d")
+# Note: Bluebook format omits spaces in single-letter reporters (e.g., "N.W.2d")
+# but keeps spaces in word-abbreviation reporters (e.g., "So. 3d", "Cal. 4th")
 
 def test_nw2d(all_cites):
-    matches = _find(all_cites, "585 N.W. 2d 123")
+    matches = _find(all_cites, "585 N.W.2d 123")
     assert len(matches) >= 1
     assert matches[0].cite_type.value == "case"
 
 
 def test_nw3d(all_cites):
-    matches = _find(all_cites, "993 N.W. 3d 374")
+    matches = _find(all_cites, "993 N.W.3d 374")
     assert len(matches) >= 1
 
 
@@ -261,12 +262,12 @@ def test_nw_first(all_cites):
 
 
 def test_a3d(all_cites):
-    matches = _find(all_cites, "200 A. 3d 400")
+    matches = _find(all_cites, "200 A.3d 400")
     assert len(matches) == 1
 
 
 def test_se2d(all_cites):
-    matches = _find(all_cites, "300 S.E. 2d 100")
+    matches = _find(all_cites, "300 S.E.2d 100")
     assert len(matches) == 1
 
 
@@ -276,12 +277,12 @@ def test_so3d(all_cites):
 
 
 def test_sw3d(all_cites):
-    matches = _find(all_cites, "500 S.W. 3d 300")
+    matches = _find(all_cites, "500 S.W.3d 300")
     assert len(matches) == 1
 
 
 def test_p3d(all_cites):
-    matches = _find(all_cites, "150 P. 3d 200")
+    matches = _find(all_cites, "150 P.3d 200")
     assert len(matches) == 1
 
 
@@ -366,12 +367,12 @@ def test_tc(all_cites):
 def test_parallel_in_isolation():
     """Parallel detection works when citations aren't deduplicated away."""
     cites = scan_text("See 585 N.W.2d 123, 2000 ND 45.")
-    nw = _find(cites, "585 N.W. 2d 123")
+    nw = _find(cites, "585 N.W.2d 123")
     nd = _find(cites, "2000 ND 45")
     assert len(nw) == 1
     assert len(nd) == 1
     assert "2000 ND 45" in nw[0].parallel_cites
-    assert "585 N.W. 2d 123" in nd[0].parallel_cites
+    assert "585 N.W.2d 123" in nd[0].parallel_cites
 
 
 # --- URL generation spot checks ---
@@ -391,7 +392,7 @@ def test_nd_neutral_url(all_cites):
 
 
 def test_nw2d_courtlistener_url(all_cites):
-    matches = _find(all_cites, "585 N.W. 2d 123")
+    matches = _find(all_cites, "585 N.W.2d 123")
     assert len(matches) >= 1
     urls = [s.url for s in matches[0].sources]
     assert any("courtlistener.com" in u for u in urls)

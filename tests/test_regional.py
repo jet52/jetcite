@@ -7,7 +7,7 @@ def test_nw2d():
     m = RegionalReporterMatcher()
     results = m.find_all("585 N.W.2d 123")
     assert len(results) == 1
-    assert results[0].normalized == "585 N.W. 2d 123"
+    assert results[0].normalized == "585 N.W.2d 123"
     # CourtListener is the source for all NW citations
     assert "courtlistener.com" in results[0].sources[0].url
 
@@ -16,7 +16,7 @@ def test_a3d():
     m = RegionalReporterMatcher()
     results = m.find_all("200 A.3d 400")
     assert len(results) == 1
-    assert results[0].normalized == "200 A. 3d 400"
+    assert results[0].normalized == "200 A.3d 400"
 
 
 def test_so_2d():

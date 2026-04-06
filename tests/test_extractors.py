@@ -686,7 +686,7 @@ def test_cli_cache_dryrun(tmp_path):
     ])
     assert result.exit_code == 0
     assert "fetch" in result.output
-    assert "N.W." in result.output  # normalized form: 585 N.W. 2d 123
+    assert "N.W." in result.output  # normalized form: 585 N.W.2d 123
 
 
 def test_cli_cache_status_missing(tmp_path):
