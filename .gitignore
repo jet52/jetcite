@@ -8,3 +8,4 @@ build/
 .ruff_cache/
 jetcite-skill-*.zip
 skill/pyproject.toml
+TODO.md
