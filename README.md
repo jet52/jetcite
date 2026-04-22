@@ -1,6 +1,6 @@
 # jetcite
 
-American legal citation parser and linker. Parses legal citations from text, generates URLs to official government sources, and optionally verifies that URLs resolve.
+American legal citation parser and linker. Parses legal citations from text, generates URLs to official government sources or reliable aggregators like courtlistener.com, and optionally verifies that URLs resolve.
 
 ## Install
 
