@@ -260,3 +260,14 @@ HTML and PDF content is automatically converted to markdown. Original downloads 
 | law.cornell.edu (LII) | Federal rule pages | FRCP, FRE, etc. |
 | supreme.justia.com | Opinion pages | U.S. Reports |
 | courtlistener.com | `/c/` citation redirect URLs | All case reporters (fallback) |
+
+## Contributing
+
+On a fresh clone, activate the local pre-push sensitive-content check:
+
+```bash
+git config --local core.hooksPath .githooks
+```
+
+It scans commits being pushed for likely ND court dockets, confidential-case
+captions, and committed binaries. Bypass once with `git push --no-verify`.
