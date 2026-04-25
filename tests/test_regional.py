@@ -141,3 +141,39 @@ def test_real_p3d():
     m = RegionalReporterMatcher()
     results = m.find_all("478 P.3d 164")
     assert len(results) == 1
+
+
+# ── Truncation regression: pin-cite short forms (Gion redline 2026-04-25) ────
+
+
+def test_so_3d_pin_cite_no_truncation():
+    """`409 So. 3d at 188` must NOT produce a phantom `409 So. 3` citation."""
+    m = RegionalReporterMatcher()
+    results = m.find_all("Niemeyer, 409 So. 3d at 188.")
+    assert results == []
+
+
+def test_full_so_3d_then_pin_cite_dedup():
+    """Full + pin cite combination yields exactly one entry."""
+    m = RegionalReporterMatcher()
+    text = (
+        "Niemeyer v. Niemeyer, 409 So. 3d 186, 188 (Fla. Dist. Ct. App. 2025); "
+        "see also id., 409 So. 3d at 190."
+    )
+    results = m.find_all(text)
+    assert len(results) == 1
+    assert results[0].normalized == "409 So. 3d 186"
+
+
+def test_sw_3d_pin_cite_no_truncation():
+    """Same regression check for S.W. reporter."""
+    m = RegionalReporterMatcher()
+    results = m.find_all("601 S.W.3d at 175")
+    assert results == []
+
+
+def test_se_2d_pin_cite_no_truncation():
+    """Same regression check for S.E. reporter."""
+    m = RegionalReporterMatcher()
+    results = m.find_all("100 S.E.2d at 50")
+    assert results == []

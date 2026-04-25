@@ -112,3 +112,72 @@ def test_real_l_ed_2d():
     results = m.find_all("128 L. Ed. 2d 767")
     assert len(results) == 1
     assert results[0].components["reporter"] == "L. Ed. 2d"
+
+
+# ── Truncation regression: pin-cite short forms (Gion redline 2026-04-25) ────
+
+
+def test_pin_cite_no_truncation_f3d():
+    """`491 F.3d at 363` must NOT produce a phantom `491 F. 3` citation.
+
+    Before the fix, the regex backtracked through the optional series group
+    and emitted a malformed citation with page='3'.
+    """
+    m = FederalCaseMatcher()
+    results = m.find_all("See Goss, 491 F.3d at 363.")
+    assert results == []
+
+
+def test_pin_cite_no_truncation_f2d():
+    """`731 F.2d at 915` must produce no citation, not `731 F. 2`."""
+    m = FederalCaseMatcher()
+    results = m.find_all("Laker, 731 F.2d at 915.")
+    assert results == []
+
+
+def test_full_cite_then_pin_cite_dedup():
+    """Document with full cite plus pin-cite back-reference yields one entry."""
+    m = FederalCaseMatcher()
+    text = (
+        "Goss, 491 F.3d 355, 363 (8th Cir. 2007); "
+        "see also Goss, 491 F.3d at 365."
+    )
+    results = m.find_all(text)
+    # Expect exactly one match: the full cite. The pin cite is rejected.
+    assert len(results) == 1
+    assert results[0].normalized == "491 F.3d 355"
+
+
+def test_federal_first_series():
+    """Pre-1924 Federal Reporter (no series marker): `200 F. 100`."""
+    m = FederalCaseMatcher()
+    results = m.find_all("200 F. 100")
+    assert len(results) == 1
+    assert results[0].normalized == "200 F. 100"
+    assert results[0].components["reporter"] == "F."
+
+
+def test_federal_first_series_does_not_match_modern():
+    """First-series pattern must not match `491 F.3d 355` (modern series)."""
+    m = FederalCaseMatcher()
+    results = m.find_all("491 F.3d 355")
+    # Exactly one match — from the modern-series pattern, not the first-series one.
+    assert len(results) == 1
+    assert results[0].components["reporter"] == "F.3d"
+
+
+def test_f_supp_first_series():
+    """Pre-1988 F. Supp. (no series marker): `100 F. Supp. 200`."""
+    m = FederalCaseMatcher()
+    results = m.find_all("100 F. Supp. 200")
+    assert len(results) == 1
+    assert results[0].normalized == "100 F. Supp. 200"
+    assert results[0].components["reporter"] == "F. Supp."
+
+
+def test_f_supp_first_does_not_match_modern():
+    """First-series F. Supp. pattern must not match `195 F. Supp. 3d 776`."""
+    m = FederalCaseMatcher()
+    results = m.find_all("195 F. Supp. 3d 776")
+    assert len(results) == 1
+    assert results[0].components["reporter"] == "F. Supp. 3d"
