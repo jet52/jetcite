@@ -192,6 +192,9 @@ Each `Citation` object has:
 | `sources` | `list[Source]` | Available URLs with name and verification status |
 | `parallel_cites` | `list[str]` | Normalized forms of parallel citations (batch mode) |
 | `position` | `int` | Character offset in source text |
+| `antecedent_name` | `str \| None` | Best-effort case name governing the cite, e.g. `"Boedecker v. St. Alexius Hospital"` (heuristic; `None` when no name is found — see note below) |
+
+> **`antecedent_name` is a heuristic**, unlike the deterministic fields above. It is recovered by looking back from the citation into the surrounding prose for a `X v. Y` / `In re X` caption, so the left boundary is inherently fuzzy. Treat it as a hint (useful for disambiguating a reporter page shared by more than one case), tolerate `None`, and prefer full `v.` captions over short-form matches. The standalone helper `extract_antecedent_name(text, position)` is also exported.
 
 Each `Source` has:
 
