@@ -153,6 +153,67 @@ def get_url(citation: str) -> str:
 
 To include jetcite directly in a skill without installing it as a package, copy the `src/jetcite/` directory into your skill and import from it. The library has no runtime dependencies beyond `click` (CLI only) and `httpx` (verification only). The core parsing and URL generation (`scanner.py`, `patterns/`, `sources/`, `models.py`) are pure Python with no external dependencies.
 
+### Network egress in sandboxed environments (Claude Cowork / Claude Code)
+
+Citation *parsing* and URL *generation* are fully offline. But a few features
+make outbound HTTP requests, and sandboxed Claude environments route all egress
+through a filtering proxy with a domain allowlist. If the target host is not on
+the allowlist, the request is rejected at the proxy (HTTP 403 on CONNECT) and
+jetcite degrades silently to a less specific result.
+
+The feature most users notice: by default a scan resolves each ND opinion's
+search URL to the **direct opinion PDF URL** (e.g.
+`…/supreme-court/opinions/114404`) by fetching `www.ndcourts.gov`. With that host
+blocked, the citation keeps the one-click-away *search* URL
+(`…/opinions?cit1=2008&citType=ND&cit2=144…`) instead. (jetcite also works with
+no `httpx` installed — it falls back to the standard-library `urllib`, which uses
+the same proxy.)
+
+**To allowlist the domains in Claude Cowork:** open the sandbox settings →
+**Allow network egress** → **Domain allowlist** → **Additional allowed domains**,
+and add the hosts below. In local Claude Code, set the same hosts under
+`sandbox.network.allowedDomains` in `.claude/settings.json`.
+
+Two things that commonly trip people up:
+
+- **A bare domain does not match its subdomains.** jetcite requests
+  `www.ndcourts.gov`, so an allowlist entry of `ndcourts.gov` alone will still
+  403. Use the wildcard `*.ndcourts.gov` (or list the exact host
+  `www.ndcourts.gov`).
+- **The allowlist is read when the session starts.** Editing it does not
+  reconfigure an already-running sandbox — start a **new** session after
+  changing it.
+
+Recommended entries (the canonical list lives in
+[`src/jetcite/NETWORK.md`](src/jetcite/NETWORK.md), which ships with every
+vendored copy):
+
+| Allowlist entry | Enables |
+|-----------------|---------|
+| `*.ndcourts.gov` | Direct ND opinion PDF URLs (default scan behavior); ND rule and case-record links |
+| `www.courtlistener.com` | Case-law fallback URLs and source verification |
+| `supreme.justia.com` | U.S. Reports opinion pages |
+| `www.law.cornell.edu` | Federal rule pages (FRCP, FRE, etc.) |
+| `www.govinfo.gov` | U.S. Code section links |
+| `www.ecfr.gov` | C.F.R. section links |
+| `ndlegis.gov` | NDCC, NDAC |
+| `ndconst.org` | ND Constitution |
+| `constitutioncenter.org` | U.S. Constitution |
+
+This list is enforced by `tests/test_egress.py`: if a future source module adds
+a new host, the test fails until the host is added to `EGRESS_ALLOWLIST` and to
+both this table and `NETWORK.md`.
+
+At minimum, add `*.ndcourts.gov` — it is the only host needed for the default
+ND opinion PDF resolution. To verify the allowlist took effect, run a lookup in a
+fresh session and confirm you get a `…/opinions/<id>` URL rather than a
+`…/opinions?cit1=…` search URL:
+
+```bash
+python3 path/to/jetcite_tool.py lookup "2008 ND 144"
+# → https://www.ndcourts.gov/supreme-court/opinions/114404
+```
+
 ## Using jetcite from an MCP Server
 
 Wrap the API in MCP tool definitions:
