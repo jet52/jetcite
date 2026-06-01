@@ -10,12 +10,22 @@ Usage:
 import argparse
 import json
 import sys
+import warnings
 from pathlib import Path
 
 # Add the bundled src/ directory to the import path
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
-from jetcite import lookup, scan_text  # noqa: E402
+from jetcite import (  # noqa: E402
+    EgressBlockedWarning,
+    egress_blocked_hosts,
+    lookup,
+    scan_text,
+)
+
+# Surface egress blocks once, consolidated, after the command runs (below)
+# rather than as a mid-run Python warning.
+warnings.simplefilter("ignore", EgressBlockedWarning)
 
 
 def cmd_lookup(args):
@@ -72,6 +82,18 @@ def main():
 
     args = parser.parse_args()
     args.func(args)
+
+    blocked = egress_blocked_hosts()
+    if blocked:
+        print(
+            "Note: network egress was blocked for "
+            + ", ".join(sorted(blocked))
+            + ". These hosts are not on the sandbox egress allowlist, so some "
+            "citation URLs fell back to less specific links (e.g. an ND search "
+            "URL instead of the direct opinion PDF). Add the domains in "
+            "lib/jetcite/NETWORK.md to the allowlist and start a new session.",
+            file=sys.stderr,
+        )
 
 
 if __name__ == "__main__":
