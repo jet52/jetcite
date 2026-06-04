@@ -1,0 +1,20 @@
+This fixture reproduces a neutral citation split across a PDF page break,
+with the page-number footer landing between the reporter token ("ND") and
+the opinion number. The text is synthetic — modeled on a real page-break
+splice but containing no case-identifying details — and reproduces the
+"2024 ND 9" phantom-cite bug.
+
+See TODO.md, "Plan: Page-break citation splice."
+
+--- begin sample text ---
+
+[¶ 22] This case presents a threshold deficiency distinguishable from
+the circumstances addressed in Doe v. Doe. In that case, the appellant had
+received proper notice of the hearing. Doe v. Doe, 2024 ND
+
+9
+
+
+214, ¶ 16. In contrast, the appellant here was never properly served.
+
+--- end sample text ---
