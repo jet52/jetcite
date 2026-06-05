@@ -2,6 +2,15 @@
 
 American legal citation parser and linker. Parses legal citations from text, generates URLs to official government sources or reliable aggregators like courtlistener.com, and optionally verifies that URLs resolve.
 
+## Not an Official Court Product
+
+jetcite is an independent, open-source project published by an individual in a
+personal capacity as legal-educational software, consistent with Rule 3.1 of the
+North Dakota Code of Judicial Conduct. It is not authorized, endorsed, or maintained
+by the North Dakota Supreme Court or any court. Parsed citations and generated links
+are machine-generated and may be inaccurate or incomplete — verify against the
+official source before relying on them. It is not legal advice.
+
 ## Install
 
 ```bash
