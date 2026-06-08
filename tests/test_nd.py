@@ -1,5 +1,6 @@
 """Tests for North Dakota-specific citation patterns."""
 
+from jetcite.models import CitationType
 from jetcite.patterns.states.nd import NDMatcher
 
 
@@ -54,6 +55,73 @@ def test_ndac_chapter():
     results = m.find_all("N.D.A.C. ch. 43-02-05")
     assert len(results) == 1
     assert results[0].normalized == "N.D.A.C. ch. 43-02-05"
+
+
+def test_ndac_prose_section_of_admin_code():
+    # Prose form must classify as NDAC (regulation), not NDCC (statute).
+    # Regression: previously misparsed as "N.D.C.C. § 75-02-04.1".
+    m = NDMatcher()
+    results = m.find_all(
+        "Section 75-02-04.1-07(7) of the North Dakota Administrative Code.")
+    ndac = [r for r in results if r.cite_type == CitationType.REGULATION]
+    assert len(ndac) == 1
+    c = ndac[0]
+    assert c.normalized == "N.D.A.C. § 75-02-04.1-07"
+    assert c.components == {
+        "part1": "75", "part2": "02", "part3": "04.1", "part4": "07"}
+    assert c.pinpoint == "(7)"
+    assert "acdata/pdf/75-02-04.1.pdf" in c.sources[0].url
+    # The truncated NDCC match must not survive deduplication.
+    assert not any(r.normalized == "N.D.C.C. § 75-02-04.1" for r in results)
+
+
+def test_ndac_bare_four_group_section():
+    # A bare four-group "Section" cite is structurally NDAC even without the
+    # "Administrative Code" cue (NDCC is always three groups).
+    m = NDMatcher()
+    results = m.find_all("Section 75-02-04.1-07")
+    ndac = [r for r in results if r.cite_type == CitationType.REGULATION]
+    assert len(ndac) == 1
+    assert ndac[0].normalized == "N.D.A.C. § 75-02-04.1-07"
+    assert not any(r.cite_type == CitationType.STATUTE for r in results)
+
+
+def test_ndac_reverse_section():
+    # Reverse form (number then N.D.A.C.) stays classified as NDAC.
+    m = NDMatcher()
+    results = m.find_all("section 75-02-04.1-07, N.D.A.C.")
+    ndac = [r for r in results if r.cite_type == CitationType.REGULATION]
+    assert len(ndac) == 1
+    assert ndac[0].normalized == "N.D.A.C. § 75-02-04.1-07"
+
+
+def test_ndac_standard_section_with_subsection():
+    # Existing N.D.A.C.-prefixed form is unchanged.
+    m = NDMatcher()
+    results = m.find_all("N.D.A.C. § 75-02-04.1-07(7)")
+    ndac = [r for r in results if r.cite_type == CitationType.REGULATION]
+    assert len(ndac) == 1
+    assert ndac[0].normalized == "N.D.A.C. § 75-02-04.1-07"
+
+
+def test_ndcc_three_group_section_unchanged():
+    # A three-group "Section" cite with no Admin-Code cue stays NDCC.
+    m = NDMatcher()
+    results = m.find_all("Section 14-05-24.1")
+    statute = [r for r in results if r.cite_type == CitationType.STATUTE]
+    assert len(statute) == 1
+    assert statute[0].normalized == "N.D.C.C. § 14-05-24.1"
+    assert not any(r.cite_type == CitationType.REGULATION for r in results)
+
+
+def test_ndcc_prose_century_code_unchanged():
+    # Prose NDCC with the Century Code cue stays NDCC.
+    m = NDMatcher()
+    results = m.find_all(
+        "Section 14-09-06.2 of the North Dakota Century Code")
+    statute = [r for r in results if r.cite_type == CitationType.STATUTE]
+    assert len(statute) == 1
+    assert statute[0].normalized == "N.D.C.C. § 14-09-06.2"
 
 
 def test_nd_const():
