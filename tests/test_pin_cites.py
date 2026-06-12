@@ -339,3 +339,66 @@ def test_to_dict_pin_keys_only_on_pins():
     assert pin_d["is_pin_cite"] is True
     assert pin_d["parent_normalized"] == "491 F.3d 355"
     assert pin_d["pin_page"] == "359"
+
+
+class TestParallelPairPinLinking:
+    """Pins after a parallel pair link to the pagination-matching member,
+    not the textually nearest (trailing reporter) one."""
+
+    ND_PAIR = (
+        "\"A trial court has broad discretion in fixing a criminal "
+        "sentence.\" State v. Gonzalez, 2024 ND 4, ¶ 6, 1 N.W.3d 919. "
+        "Our review is generally confined to the statutory limits. "
+    )
+
+    def _pins(self, text):
+        from jetcite import scan_text
+        return [c for c in scan_text(text, resolve=False, include_pin_cites=True)
+                if c.is_pin_cite]
+
+    def test_bare_id_links_to_neutral_primary(self):
+        pins = self._pins(self.ND_PAIR + "Id.; see also State v. Maher, "
+                          "2026 ND 35, ¶ 7, 31 N.W.3d 619.")
+        bare = next(p for p in pins if p.raw_text == "Id.")
+        assert bare.parent_normalized == "2024 ND 4"
+        assert bare.sources and bare.sources[0].name == "ndcourts"
+
+    def test_paragraph_id_links_to_neutral_primary(self):
+        pins = self._pins(self.ND_PAIR + "Id. ¶ 9.")
+        pin = next(p for p in pins if p.pin_paragraph == "9")
+        assert pin.parent_normalized == "2024 ND 4"
+
+    def test_page_id_links_to_reporter(self):
+        pins = self._pins(self.ND_PAIR + "Id. at 921.")
+        pin = next(p for p in pins if p.pin_page == "921")
+        assert pin.parent_normalized == "1 N.W.3d 919"
+
+    def test_name_paragraph_pin_links_to_neutral(self):
+        # Civil caption: the antecedent-name key is the first party, so a
+        # name pin resolves ("Niemeyer"); criminal "State v. X" captions
+        # key on "State" and are out of scope here.
+        text = ("Niemeyer v. Niemeyer, 2024 ND 156, ¶ 8, 9 N.W.3d 100, "
+                "requires specific findings. More discussion follows. "
+                "Niemeyer, ¶ 12.")
+        pins = self._pins(text)
+        pin = next(p for p in pins if p.pin_paragraph == "12")
+        assert pin.parent_normalized == "2024 ND 156"
+
+    def test_chained_id_inherits_neutral(self):
+        pins = self._pins(self.ND_PAIR + "Id. ¶ 9. More text. Id.")
+        chained = [p for p in pins if p.raw_text == "Id."]
+        assert chained and all(p.parent_normalized == "2024 ND 4" for p in chained)
+
+    def test_scotus_page_id_prefers_us_reports(self):
+        text = ("Mapp v. Ohio, 367 U.S. 643, 81 S. Ct. 1684 (1961), applied "
+                "the exclusionary rule to the states. Id. at 655.")
+        pins = self._pins(text)
+        pin = next(p for p in pins if p.pin_page == "655")
+        assert pin.parent_normalized == "367 U.S. 643"
+
+    def test_regional_only_case_unchanged(self):
+        text = ("Hogen v. Hogen, 226 N.W.2d 640 (N.D. 1975), set the "
+                "framework. Id. at 643.")
+        pins = self._pins(text)
+        pin = next(p for p in pins if p.pin_page == "643")
+        assert pin.parent_normalized == "226 N.W.2d 640"
