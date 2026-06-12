@@ -19,6 +19,15 @@ def test_nd_neutral_with_pinpoint():
     assert results[0].pinpoint == "¶ 12"
 
 
+def test_nd_neutral_with_at_para_pinpoint():
+    """Bluebook short form 'at ¶' parses as a full cite with pinpoint."""
+    m = NeutralCitationMatcher()
+    results = m.find_all("2024 ND 156 at ¶ 12")
+    assert len(results) == 1
+    assert results[0].normalized == "2024 ND 156"
+    assert results[0].pinpoint == "¶ 12"
+
+
 def test_ohio_neutral():
     m = NeutralCitationMatcher()
     results = m.find_all("2018-Ohio-3237")
