@@ -402,3 +402,47 @@ class TestParallelPairPinLinking:
         pins = self._pins(text)
         pin = next(p for p in pins if p.pin_page == "643")
         assert pin.parent_normalized == "226 N.W.2d 640"
+
+
+class TestCriminalCaptionNamePins:
+    """Defendant-name short forms after "State v. X" captions resolve."""
+
+    def _pins(self, text):
+        from jetcite import scan_text
+        return [c for c in scan_text(text, resolve=False, include_pin_cites=True)
+                if c.is_pin_cite]
+
+    def test_defendant_paragraph_pin_resolves(self):
+        text = ("State v. Gonzalez, 2024 ND 4, ¶ 6, 1 N.W.3d 919, governs "
+                "sentencing review. More discussion follows. Gonzalez, ¶ 9.")
+        pins = self._pins(text)
+        pin = next(p for p in pins if p.pin_paragraph == "9")
+        # parallel-pair preference applies on top: ¶ pin → neutral primary
+        assert pin.parent_normalized == "2024 ND 4"
+
+    def test_defendant_page_pin_resolves(self):
+        text = ("State v. Himmerick, 499 N.W.2d 568 (N.D. 1993), controls. "
+                "The reasoning is set out there. Himmerick at 571.")
+        pins = self._pins(text)
+        pin = next(p for p in pins if p.pin_page == "571")
+        assert pin.parent_normalized == "499 N.W.2d 568"
+
+    def test_individual_surname_is_last_word(self):
+        text = ("Energy Co. v. Pat Gion, 2026 ND 999, ¶ 3, holds otherwise. "
+                "We are not persuaded. Gion, ¶ 5.")
+        pins = self._pins(text)
+        pin = next(p for p in pins if p.pin_paragraph == "5")
+        assert pin.parent_normalized == "2026 ND 999"
+
+    def test_first_party_short_form_still_resolves(self):
+        text = ("Goss Int'l Corp. v. Man Roland Druckmaschinen AG, 491 F.3d "
+                "355 (8th Cir. 2007), counsels caution. Goss at 363.")
+        pins = self._pins(text)
+        pin = next(p for p in pins if p.pin_page == "363")
+        assert pin.parent_normalized == "491 F.3d 355"
+
+    def test_unrelated_name_still_drops(self):
+        text = ("State v. Gonzalez, 2024 ND 4, ¶ 6, governs. "
+                "The brief argued Pemberton at 363 was wrongly decided.")
+        pins = self._pins(text)
+        assert not any(p.components.get("shape") == "name_pin" for p in pins)
