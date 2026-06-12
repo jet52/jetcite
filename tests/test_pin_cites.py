@@ -446,3 +446,69 @@ class TestCriminalCaptionNamePins:
                 "The brief argued Pemberton at 363 was wrongly decided.")
         pins = self._pins(text)
         assert not any(p.components.get("shape") == "name_pin" for p in pins)
+
+
+class TestBareIdPinpointInheritance:
+    """A bare Id. adopts the antecedent's pinpoint (same authority, same
+    page/paragraph), marked as inherited for verification."""
+
+    def _pins(self, text, **kw):
+        from jetcite import scan_text
+        kw.setdefault("resolve", False)
+        kw.setdefault("include_pin_cites", True)
+        return [c for c in scan_text(text, **kw) if c.is_pin_cite]
+
+    def test_bare_id_inherits_neutral_paragraph(self):
+        text = ("State v. Gonzalez, 2024 ND 4, ¶ 6, 1 N.W.3d 919. Our "
+                "review is confined to the statutory limits. Id.")
+        pin = next(p for p in self._pins(text) if p.raw_text == "Id.")
+        assert pin.parent_normalized == "2024 ND 4"
+        assert pin.pin_paragraph == "6"
+        assert pin.pinpoint == "¶ 6"
+        assert pin.components.get("pinpoint_inherited") is True
+
+    def test_bare_id_inherits_prior_pin_paragraph(self):
+        text = ("Tracey v. Tracey, 2023 ND 219, ¶ 5. Id. ¶ 9. "
+                "More discussion. Id.")
+        pins = self._pins(text)
+        bare = [p for p in pins if p.raw_text == "Id."
+                and p.components.get("pinpoint_inherited")]
+        assert len(bare) == 1
+        assert bare[0].pin_paragraph == "9"
+
+    def test_bare_id_inherits_prior_pin_page(self):
+        text = ("Goss, 491 F.3d 355 (8th Cir. 2007). Id. at 363. "
+                "The court agreed. Id.")
+        pins = self._pins(text)
+        bare = next(p for p in pins if p.components.get("pinpoint_inherited"))
+        assert bare.pin_page == "363"
+        assert bare.pinpoint == "at 363"
+
+    def test_bare_id_inherits_repeat_paragraph(self):
+        text = ("Niemeyer v. Niemeyer, 2024 ND 156, ¶ 8, holds so. "
+                "Later: Niemeyer, 2024 ND 156, ¶ 12. Id.")
+        pins = self._pins(text, include_occurrences=True)
+        bare = next(p for p in pins if p.raw_text == "Id.")
+        assert bare.pin_paragraph == "12"
+        assert bare.parent_normalized == "2024 ND 156"
+
+    def test_explicit_id_pinpoint_not_overridden(self):
+        text = "Tracey v. Tracey, 2023 ND 219, ¶ 5. Id. ¶ 14."
+        pin = next(p for p in self._pins(text) if p.pin_paragraph == "14")
+        assert not pin.components.get("pinpoint_inherited")
+
+    def test_bare_id_after_unpinpointed_cite_stays_bare(self):
+        text = "The rule comes from Tracey v. Tracey, 2023 ND 219. Id."
+        pin = next(p for p in self._pins(text) if p.raw_text == "Id.")
+        assert pin.pin_paragraph is None and pin.pin_page is None
+        assert not pin.components.get("pinpoint_inherited")
+
+    def test_legacy_dict_marks_inherited(self, tmp_path):
+        from jetcite import scan_text
+        from jetcite.legacy import to_legacy_dict
+        text = "State v. Gonzalez, 2024 ND 4, ¶ 6, 1 N.W.3d 919. Id."
+        cites = scan_text(text, resolve=False, include_pin_cites=True)
+        pin = next(c for c in cites if c.is_pin_cite)
+        entry = to_legacy_dict(pin, tmp_path)
+        assert entry["pin_paragraph"] == "6"
+        assert entry["pinpoint_inherited"] is True
