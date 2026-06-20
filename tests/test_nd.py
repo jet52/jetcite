@@ -124,6 +124,42 @@ def test_ndcc_prose_century_code_unchanged():
     assert statute[0].normalized == "N.D.C.C. § 14-09-06.2"
 
 
+def test_ndcc_section_wrapped_whitespace():
+    # A section number the court's PDF wraps across a line (rendered as a stray
+    # space or newline) must still parse as one cite. The space can fall before
+    # any hyphen, including the last group. (Regression: 2026-06-20.)
+    m = NDMatcher()
+    for text in (
+        "agency decision under N.D.C.C. §§ 28-32- 46, 28-32-49.",  # space before last group
+        "under N.D.C.C. § 12.1-16-\n01, knowingly",                # newline wrap
+        "guidelines amount. See N.D.C.C. § 14-09-\n\n00.1 The",    # double-newline wrap
+        "pursuant to NDCC § 41 -09-07(1).",                         # space after first group
+    ):
+        results = m.find_all(text)
+        statute = [r for r in results if r.cite_type == CitationType.STATUTE]
+        assert statute, f"no statute cite parsed from {text!r}"
+        # normalized must be the de-spaced section number
+        assert " " not in statute[0].normalized.split("§")[-1].strip().replace(
+            "§", ""), statute[0].normalized
+
+
+def test_ndac_section_wrapped_whitespace():
+    m = NDMatcher()
+    results = m.find_all("had no control under N.D.A.C. § 75-02-\n04.1-09(2)(j)")
+    ndac = [r for r in results if r.cite_type == CitationType.REGULATION]
+    assert len(ndac) == 1
+    assert ndac[0].normalized == "N.D.A.C. § 75-02-04.1-09"
+
+
+def test_ndcc_comma_separated_numbers_not_a_section():
+    # A dash is now required between groups, so comma-separated numbers after an
+    # NDCC cue must NOT be misread as a single section number.
+    m = NDMatcher()
+    results = m.find_all("N.D.C.C. §§ 12, 34, 56 are unrelated provisions")
+    assert not any(
+        r.normalized == "N.D.C.C. § 12-34-56" for r in results)
+
+
 def test_nd_const():
     m = NDMatcher()
     results = m.find_all("N.D. Const. art. I, § 20")
