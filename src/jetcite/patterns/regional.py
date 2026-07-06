@@ -62,7 +62,7 @@ _add(r'(\d+)\s+(?:NW\.?\s?2d|N\.W2d)\s+(\d+)', "N.W.2d", False)
 # Other state reporters (no edition)
 _STATE_REPORTERS = re.compile(
     r'(\d+)\s+'
-    r'(Conn\.|Ga\.|Haw\.|Kan\.|Mass\.|Md\.|Mich\.|N\.C\.|N\.J\.|Neb\.|Or\.|Pa\.|S\.C\.|Va\.)'
+    r'(Ariz\.(?:\s+App\.)?|Conn\.|Ga\.|Haw\.|Kan\.|Mass\.|Md\.|Mich\.|N\.C\.|N\.J\.|Neb\.|Or\.|Pa\.|S\.C\.|Va\.)'
     r'\s+(\d+)'
 )
 

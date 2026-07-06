@@ -307,10 +307,10 @@ HTML and PDF content is automatically converted to markdown. Original downloads 
 
 ### State — Regional Reporters
 - All seven West regional reporters (N.W.2d, A.3d, S.E.2d, So.3d, S.W.3d, N.E.3d, P.3d)
-- State-specific reporters (Cal., N.Y., Ohio St., Wash., Ill.)
+- State-specific reporters (Ariz., Cal., N.Y., Ohio St., Wash., Ill.)
 
 ### State — Medium-Neutral Citations
-- 21 jurisdictions: AR, AZ, CO, GU, IL, ME, MP, MT, NC, ND, NH, NM, OH, OK, PA, PR, SD, UT, VT, WI, WY
+- 20 jurisdictions: AR, CO, GU, IL, ME, MP, MT, NC, ND, NH, NM, OH, OK, PA, PR, SD, UT, VT, WI, WY
 
 ### North Dakota (deep coverage)
 - N.D.C.C. sections and chapters (with decimal titles like 12.1)
@@ -320,6 +320,21 @@ HTML and PDF content is automatically converted to markdown. Original downloads 
 - North Dakota Reports (N.D.) — volumes 1-79, 1890-1953
 - Medium-neutral citations (1997-present)
 
+### Arizona
+- A.R.S. statutes (section-level deep links to azleg.gov, incl. decimal sections)
+- A.A.C. administrative code (chapter-level PDF on apps.azsos.gov)
+- Arizona Constitution (section-level, incl. Article 4 Parts)
+- Court rules (recognized; linked to the official azcourts.gov rules index — no
+  citation-derivable per-rule URL exists)
+- Opinions via Pacific Reporter / Ariz. Reports → courtlistener.com
+
+### Iowa
+- Iowa Code (section-level deep links to legis.iowa.gov; chapter-only supported)
+- Iowa Administrative Code (rule-level PDF on legis.iowa.gov)
+- Iowa Court Rules (whole-chapter PDF on legis.iowa.gov)
+- Iowa Constitution (official codified whole-document PDF)
+- Opinions via N.W.2d → courtlistener.com
+
 ## URL Sources
 
 | Source | URL | Used for |
@@ -327,6 +342,10 @@ HTML and PDF content is automatically converted to markdown. Original downloads 
 | ndcourts.gov | Direct opinion PDFs, rule links, reporter search | ND opinions, ND rules, NW/NW2d/NW3d lookup |
 | ndlegis.gov | PDF links with named destinations | NDCC, NDAC |
 | ndconst.org | Article/section URLs | ND Constitution |
+| www.azleg.gov | Section and article/section pages | A.R.S., Ariz. Constitution |
+| apps.azsos.gov | Chapter PDFs | A.A.C. |
+| www.azcourts.gov | Rules index page | Arizona court rules |
+| www.legis.iowa.gov | Section/rule/chapter PDFs | Iowa Code, Iowa Admin. Code, Iowa Court Rules, Iowa Constitution |
 | govinfo.gov | USC section links | U.S. Code |
 | ecfr.gov | Current CFR section links | C.F.R. |
 | constitutioncenter.org | Article and amendment pages | U.S. Constitution |
