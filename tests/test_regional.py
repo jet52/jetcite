@@ -177,3 +177,40 @@ def test_se_2d_pin_cite_no_truncation():
     m = RegionalReporterMatcher()
     results = m.find_all("100 S.E.2d at 50")
     assert results == []
+
+
+# ---- West bound-volume house style: spaced two-letter abbreviations --------
+# West's older print style spaces the abbreviation ("49 N. D. 915, 194 N. W.
+# 663"); ~4,350 westlaw-sourced ND opinions carry it. Normalized output stays
+# compact so cross-links resolve.
+
+def test_spaced_nd_reports():
+    m = RegionalReporterMatcher()
+    results = m.find_all("49 N. D. 915")
+    assert [r.normalized for r in results] == ["49 N.D. 915"]
+
+
+def test_spaced_nw_first_series():
+    m = RegionalReporterMatcher()
+    results = m.find_all("194 N. W. 663")
+    assert [r.normalized for r in results] == ["194 N.W. 663"]
+
+
+def test_spaced_nw2d():
+    m = RegionalReporterMatcher()
+    results = m.find_all("210 N. W. 2d 82")
+    assert [r.normalized for r in results] == ["210 N.W.2d 82"]
+
+
+def test_spaced_nd_not_ndcc():
+    """Spaced 'N. D. C. C.' statute form must not yield a phantom N.D. case."""
+    m = RegionalReporterMatcher()
+    results = m.find_all("section 12.1-20-03, N. D. C. C., applies")
+    assert results == []
+
+
+def test_spaced_nw_linebreak():
+    """The internal space may be a newline (print line wrap)."""
+    m = RegionalReporterMatcher()
+    results = m.find_all("194 N.\nW. 663")
+    assert [r.normalized for r in results] == ["194 N.W. 663"]

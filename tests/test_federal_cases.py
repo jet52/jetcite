@@ -181,3 +181,12 @@ def test_f_supp_first_does_not_match_modern():
     results = m.find_all("195 F. Supp. 3d 776")
     assert len(results) == 1
     assert results[0].components["reporter"] == "F. Supp. 3d"
+
+
+def test_spaced_us_reports():
+    """West's spaced house style: '260 U. S. 22' normalizes compact."""
+    from jetcite.patterns.federal_cases import FederalCaseMatcher
+    m = FederalCaseMatcher()
+    results = m.find_all("Brown v. Board, 347 U. S. 483 (1954)")
+    normalized = [r.normalized for r in results]
+    assert "347 U.S. 483" in normalized
