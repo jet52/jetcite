@@ -460,6 +460,50 @@ def test_id_after_mixed_case_and_rule_string_cite_unresolved():
     assert pins[0].parent_normalized is None
 
 
+def test_id_after_statute_recitation_resolves_to_statute():
+    """A re-cited statute is deduped from output, but its position must
+    still anchor a following Id. — not the nearer emitted case cite."""
+    text = (
+        "Custody is governed by N.D.C.C. § 14-09-06.2. "
+        "See State v. Gonzalez, 2024 ND 4, ¶ 6. "
+        "Relief also requires N.D.C.C. § 14-09-06.2. Id. lists the factors."
+    )
+    citations = scan_text(text, include_pin_cites=True)
+    pins = _pins(citations)
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "N.D.C.C. § 14-09-06.2"
+    # Only the first statute occurrence is emitted
+    fulls = [c.normalized for c in _fulls(citations)]
+    assert fulls.count("N.D.C.C. § 14-09-06.2") == 1
+
+
+def test_id_after_rule_recitation_resolves_to_rule():
+    text = (
+        "A motion under N.D.R.Civ.P. 60(b) must be timely. "
+        "See State v. Gonzalez, 2024 ND 4, ¶ 6. "
+        "Relief requires a motion under N.D.R.Civ.P. 60(b). "
+        "Id. requires a reasonable time."
+    )
+    pins = _pins(scan_text(text, include_pin_cites=True))
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "N.D.R.Civ.P. 60"
+
+
+def test_id_after_case_recitation_without_occurrences_flag():
+    """Even without include_occurrences, an Id. after a re-cited case must
+    anchor to the re-citation's position and inherit its pinpoint."""
+    text = (
+        "Tracey v. Tracey, 2023 ND 219, ¶ 9. "
+        "See also State v. Gonzalez, 2024 ND 4, ¶ 6. "
+        "Tracey, 2023 ND 219, ¶ 14. Id."
+    )
+    citations = scan_text(text, include_pin_cites=True)
+    pins = [p for p in _pins(citations) if p.components.get("shape") == "id"]
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "2023 ND 219"
+    assert pins[0].pin_paragraph == "14"
+
+
 def test_bare_id_with_no_antecedent_dropped():
     text = "Id. is a Latin abbreviation."
     citations = scan_text(text, include_pin_cites=True)

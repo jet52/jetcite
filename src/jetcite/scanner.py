@@ -251,7 +251,11 @@ def _resolve_pin_cites(
     if not pin_candidates:
         return []
 
-    full_spans = [(c.position, c.position + len(c.raw_text)) for c in citations]
+    # Overlap suppression uses emitted spans only: a pin candidate sitting
+    # inside a shadow re-citation IS that occurrence's pin representation
+    # (e.g. the "at ¶" form of a deduped repeat) and must survive.
+    full_spans = [(c.position, c.position + len(c.raw_text)) for c in citations
+                  if not c.components.get("_shadow")]
     case_cites = [c for c in citations if c.cite_type == CitationType.CASE]
     # Id. can point at any authority — Bluebook sanctions it for rules,
     # statutes, regulations, and constitutions, not just cases. Reporter
@@ -544,6 +548,12 @@ def scan_text(
 
     all_citations: list[Citation] = []
     repeats: list[Citation] = []
+    # Re-citations that are NOT emitted (non-case types, or any repeat when
+    # include_occurrences is off) still mark real positions in the text.
+    # Pin resolution must see them: an "Id." following a re-citation of
+    # N.D.C.C. § X refers to the statute at that position, not to whatever
+    # emitted citation happens to sit nearer to the first occurrence.
+    shadow_repeats: list[Citation] = []
     pin_candidates: list[Citation] = []
     seen: set[str] = set()
 
@@ -560,6 +570,8 @@ def scan_text(
             elif include_occurrences and cite.cite_type == CitationType.CASE:
                 cite.is_repeat = True
                 repeats.append(cite)
+            elif include_pin_cites:
+                shadow_repeats.append(cite)
 
     # Sort by position in source text
     all_citations.sort(key=lambda c: c.position)
@@ -601,8 +613,27 @@ def scan_text(
         _inherit_pin_sources(repeats, all_citations)
 
     if include_pin_cites:
-        pins = _resolve_pin_cites(pin_candidates, occurrences, text)
-        _inherit_pin_sources(pins, occurrences)
+        # Antecedent pool for pin resolution: the emitted occurrences plus
+        # the shadow re-citations, each linked to its first occurrence so a
+        # pin resolved against a shadow inherits the first occurrence's
+        # sources via parent_position. Shadows are never returned.
+        antecedents = occurrences
+        if shadow_repeats:
+            first_by_norm = {}
+            for c in all_citations:
+                first_by_norm.setdefault(c.normalized, c)
+            linked = []
+            for rep in shadow_repeats:
+                parent = first_by_norm.get(rep.normalized)
+                if parent is None:
+                    continue
+                rep.parent_normalized = parent.normalized
+                rep.components["parent_position"] = parent.position
+                rep.components["_shadow"] = True
+                linked.append(rep)
+            antecedents = sorted(occurrences + linked, key=lambda c: c.position)
+        pins = _resolve_pin_cites(pin_candidates, antecedents, text)
+        _inherit_pin_sources(pins, antecedents)
         return sorted(occurrences + pins, key=lambda c: c.position)
 
     return occurrences
