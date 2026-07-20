@@ -184,6 +184,15 @@ def test_nd_rule_civ_p():
     assert "ndcourts.gov" in found[0].sources[0].url
 
 
+def test_nd_rule_trailing_form_rejects_semicolon_gap():
+    """A semicolon is a string-cite boundary: "2024 ND 4; N.D.R.Civ.P. 60(b)"
+    must not splice the neutral cite's "4" into a phantom rule cite."""
+    m = NDMatcher()
+    results = m.find_all("See State v. Gonzalez, 2024 ND 4; N.D.R.Civ.P. 60(b).")
+    rules = [r for r in results if "rule_set" in r.components]
+    assert [r.normalized for r in rules] == ["N.D.R.Civ.P. 60"]
+
+
 def test_nd_rule_ev():
     m = NDMatcher()
     results = m.find_all("N.D.R.Ev. 803")

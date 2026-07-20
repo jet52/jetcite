@@ -175,6 +175,11 @@ def _inherit_pinpoint(pin: Citation, antecedent: Citation) -> None:
         return
     if antecedent.is_pin_cite:
         para, page = antecedent.pin_paragraph, antecedent.pin_page
+    elif antecedent.cite_type != CitationType.CASE:
+        # Rule/statute/constitution pinpoints are subdivisions ("(b)"),
+        # not pages or paragraphs — nothing to inherit under Id.'s
+        # page/¶ semantics.
+        return
     else:
         para = page = None
         pp = antecedent.pinpoint or ""
@@ -220,6 +225,11 @@ def _resolve_pin_cites(
 
     full_spans = [(c.position, c.position + len(c.raw_text)) for c in citations]
     case_cites = [c for c in citations if c.cite_type == CitationType.CASE]
+    # Id. can point at any authority — Bluebook sanctions it for rules,
+    # statutes, regulations, and constitutions, not just cases. Reporter
+    # and name pins stay case-only: their anchors (volume+reporter, party
+    # name) are inherently case-shaped.
+    id_antecedents = list(citations)
 
     by_vol_rep: dict[tuple[str, str], list[Citation]] = {}
     by_norm: dict[str, list[Citation]] = {}
@@ -256,7 +266,7 @@ def _resolve_pin_cites(
         reporter member (U.S. Reports first for SCOTUS pairs). Falls back
         to the originally resolved parent.
         """
-        if not parent.parallel_cites:
+        if parent.cite_type != CitationType.CASE or not parent.parallel_cites:
             return parent
         members = [parent]
         for norm in parent.parallel_cites:
@@ -277,7 +287,7 @@ def _resolve_pin_cites(
         an Id. reference to it is ambiguous. Parallel pairs are one authority,
         not ambiguous."""
         second = None
-        for c in case_cites:
+        for c in id_antecedents:
             if c is nearest or c.position >= pos:
                 continue
             if second is None or c.position > second.position:
@@ -330,7 +340,7 @@ def _resolve_pin_cites(
             resolved.append(pin)
 
         elif shape == "id":
-            nearest_full = nearest_preceding(case_cites, start)
+            nearest_full = nearest_preceding(id_antecedents, start)
             nearest_pin = nearest_preceding(resolved, start)
             if nearest_pin is not None and (
                 nearest_full is None or nearest_pin.position > nearest_full.position

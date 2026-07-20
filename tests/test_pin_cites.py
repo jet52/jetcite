@@ -241,6 +241,95 @@ def test_id_after_string_cite_with_parentheticals_unresolved():
     assert pins[0].parent_normalized is None
 
 
+def test_id_after_rule_resolves_to_rule_not_case():
+    """Id. whose true antecedent is a court rule must not skip back to the
+    nearest case (TODO: Id.-after-rule bug, 2026-07-20)."""
+    text = (
+        "In State v. Gonzalez, 2024 ND 4, ¶ 6, 1 N.W.3d 919, we applied the "
+        "rule. Relief requires a motion under N.D.R.Civ.P. 60(b). Id. "
+        "requires the motion to be made within a reasonable time."
+    )
+    citations = scan_text(text, include_pin_cites=True)
+    pins = _pins(citations)
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "N.D.R.Civ.P. 60"
+    assert pins[0].jurisdiction == "nd"
+
+
+def test_id_after_statute_resolves_to_statute():
+    text = (
+        "We construed the statute in Schmidt v. Schmidt, 2023 ND 100, ¶ 5. "
+        "Custody is governed by N.D.C.C. § 14-09-06.2. Id. lists the "
+        "best-interest factors."
+    )
+    citations = scan_text(text, include_pin_cites=True)
+    pins = _pins(citations)
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "N.D.C.C. § 14-09-06.2"
+
+
+def test_id_after_constitution_resolves_to_constitution():
+    text = (
+        "See Riemers v. State, 2006 ND 162. The right is secured by "
+        "N.D. Const. art. I, § 20. Id. also limits the remedy."
+    )
+    citations = scan_text(text, include_pin_cites=True)
+    pins = _pins(citations)
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "N.D. Const. art. I, § 20"
+
+
+def test_id_chain_through_rule_parent():
+    text = (
+        "Relief requires a motion under N.D.R.Civ.P. 60(b). Id. requires "
+        "a reasonable time. Id. also lists the grounds."
+    )
+    citations = scan_text(text, include_pin_cites=True)
+    pins = _pins(citations)
+    assert len(pins) == 2
+    assert all(p.parent_normalized == "N.D.R.Civ.P. 60" for p in pins)
+
+
+def test_bare_id_after_rule_inherits_no_pinpoint():
+    """Rule subdivisions aren't page/¶ pinpoints — a bare Id. after a rule
+    carries no pinpoint rather than a bogus inherited one."""
+    text = "Relief requires a motion under N.D.R.Civ.P. 60(b). Id. so provides."
+    citations = scan_text(text, include_pin_cites=True)
+    pins = _pins(citations)
+    assert len(pins) == 1
+    assert pins[0].pin_page is None
+    assert pins[0].pin_paragraph is None
+
+
+def test_id_after_rule_inherits_rule_sources():
+    text = "Relief requires a motion under N.D.R.Civ.P. 60(b). Id. so provides."
+    citations = scan_text(text, include_pin_cites=True)
+    rule = next(c for c in _fulls(citations) if c.normalized == "N.D.R.Civ.P. 60")
+    pin = _pins(citations)[0]
+    assert pin.sources == rule.sources
+    assert any(s.name == "ndcourts" for s in pin.sources)
+
+
+def test_id_after_rule_string_cite_unresolved():
+    """Two rules in a string cite are as ambiguous as two cases."""
+    text = "See N.D.R.Civ.P. 60(b); N.D.R.Ct. 3.2. Id. requires a motion."
+    citations = scan_text(text, include_pin_cites=True)
+    pins = _pins(citations)
+    assert len(pins) == 1
+    assert pins[0].parent_normalized is None
+
+
+def test_id_after_mixed_case_and_rule_string_cite_unresolved():
+    text = (
+        "See State v. Gonzalez, 2024 ND 4; N.D.R.Civ.P. 60(b). Id. requires "
+        "a motion."
+    )
+    citations = scan_text(text, include_pin_cites=True)
+    pins = _pins(citations)
+    assert len(pins) == 1
+    assert pins[0].parent_normalized is None
+
+
 def test_bare_id_with_no_antecedent_dropped():
     text = "Id. is a Latin abbreviation."
     citations = scan_text(text, include_pin_cites=True)
