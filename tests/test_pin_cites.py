@@ -18,6 +18,136 @@ def _fulls(citations):
     return [c for c in citations if not c.is_pin_cite]
 
 
+# ── Rule pins: bare "Rule N" attribution ladder ──────────────────────────────
+
+
+def test_rule_pin_candidate_shape():
+    results = [c for c in PinCiteMatcher().find_all("Under Rule 60(b), relief")
+               if c.components.get("shape") == "rule_pin"]
+    assert len(results) == 1
+    pin = results[0]
+    assert pin.components["rule"] == "60"
+    assert pin.components["subdivision"] == "(b)"
+    assert pin.pinpoint == "(b)"
+    assert pin.cite_type.value == "court_rule"
+
+
+def test_rule_pin_multipart_number():
+    results = [c for c in PinCiteMatcher().find_all("Rule 8.3.1 provides")
+               if c.components.get("shape") == "rule_pin"]
+    assert len(results) == 1
+    assert results[0].components["rule"] == "8.3.1"
+
+
+def test_rule_pin_plural_not_matched():
+    results = [c for c in PinCiteMatcher().find_all("Rules 12 and 56 apply")
+               if c.components.get("shape") == "rule_pin"]
+    assert results == []
+
+
+def test_rule_pin_year_parenthetical_not_subdivision():
+    results = [c for c in PinCiteMatcher().find_all("Rule 12(2007) discussion")
+               if c.components.get("shape") == "rule_pin"]
+    assert len(results) == 1
+    assert "subdivision" not in results[0].components
+
+
+def test_rule_pin_marker_attribution_links_to_full_cite():
+    text = ("A motion under N.D.R.Civ.P. 60(b) must be timely. "
+            "Under Rule 60(b), relief also requires diligence.")
+    pins = _pins(scan_text(text, include_pin_cites=True))
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "N.D.R.Civ.P. 60"
+    assert pins[0].components["attribution"] == "marker"
+    assert pins[0].jurisdiction == "nd"
+    assert any(s.name == "ndcourts" for s in pins[0].sources)
+
+
+def test_rule_pin_trailing_spelled_marker_synthesizes_parent():
+    text = "Rule 60(b) of the North Dakota Rules of Civil Procedure requires a motion."
+    pins = _pins(scan_text(text, include_pin_cites=True))
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "N.D.R.Civ.P. 60"
+    assert pins[0].components["attribution"] == "trailing"
+    assert pins[0].jurisdiction == "nd"
+
+
+def test_rule_pin_sole_set_links_to_later_full_cite():
+    """Bare form first (e.g. under a section heading), full cite later."""
+    text = ("Rule 29 requires an acquittal motion. "
+            "We review a motion under N.D.R.Crim.P. 29 de novo.")
+    citations = scan_text(text, include_pin_cites=True)
+    pins = _pins(citations)
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "N.D.R.Crim.P. 29"
+    assert pins[0].components["attribution"] == "sole_set"
+    full = next(c for c in _fulls(citations)
+                if c.normalized == "N.D.R.Crim.P. 29")
+    assert pins[0].sources == full.sources
+
+
+def test_rule_pin_federal_decoy_not_attributed_to_nd():
+    """A bare Rule 12 after a federal-rules discussion must not link to the
+    ND set; with no federal full cite to link, it is dropped."""
+    text = ("We cited N.D.R.Civ.P. 12 before. Under the Federal Rules of "
+            "Civil Procedure, dismissal is governed by Rule 12.")
+    pins = _pins(scan_text(text, include_pin_cites=True))
+    assert pins == []
+
+
+def test_rule_pin_federal_decoy_links_to_federal_full_cite():
+    text = ("Dismissal under Fed. R. Civ. P. 12(b)(6) is reviewed de novo. "
+            "Rule 12 requires a short and plain statement of the defense.")
+    pins = _pins(scan_text(text, include_pin_cites=True))
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "Fed. R. Civ. P. 12(b)(6)"
+    assert pins[0].jurisdiction == "us"
+
+
+def test_rule_pin_two_sets_no_marker_dropped():
+    text = "Rule 12 governs. See N.D.R.Civ.P. 12; Fed. R. Civ. P. 12."
+    pins = _pins(scan_text(text, include_pin_cites=True))
+    assert pins == []
+
+
+def test_rule_pin_conflicting_marker_dropped():
+    """Nearest-marker attribution contradicted by the document's full cites
+    (no N.D.R.Ct. 60 exists; 60 is cited under Civ.P.) — drop, don't guess."""
+    text = ("See N.D.R.Civ.P. 60(b); N.D.R.Ct. 3.2. "
+            "Under Rule 60(b), relief requires a motion.")
+    pins = _pins(scan_text(text, include_pin_cites=True))
+    assert pins == []
+
+
+def test_rule_pin_chained_id_inherits_rule_parent():
+    text = ("A motion under N.D.R.Civ.P. 60(b) must be timely. "
+            "Under Rule 60(b), relief requires diligence. "
+            "Id. also lists the grounds.")
+    pins = _pins(scan_text(text, include_pin_cites=True))
+    assert len(pins) == 2
+    assert all(p.parent_normalized == "N.D.R.Civ.P. 60" for p in pins)
+
+
+def test_rule_pin_default_scan_unchanged():
+    text = ("A motion under N.D.R.Civ.P. 60(b) must be timely. "
+            "Under Rule 60(b), relief also requires diligence.")
+    citations = scan_text(text)
+    assert [c.normalized for c in citations] == ["N.D.R.Civ.P. 60"]
+
+
+def test_rule_pin_legacy_dict():
+    from jetcite.legacy import to_legacy_dict
+
+    text = ("A motion under N.D.R.Civ.P. 60(b) must be timely. "
+            "Under Rule 60(b), relief also requires diligence.")
+    pin = _pins(scan_text(text, include_pin_cites=True))[0]
+    entry = to_legacy_dict(pin, Path("/tmp/refs"))
+    assert entry["cite_type"] == PIN_CITE_TYPE
+    assert entry["parent_normalized"] == "N.D.R.Civ.P. 60"
+    assert entry["pinpoint"] == "(b)"
+    assert entry["local_path"] is None
+
+
 # ── Matcher unit tests: shape 1 (reporter pins) ──────────────────────────────
 
 

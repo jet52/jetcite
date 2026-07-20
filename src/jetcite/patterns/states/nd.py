@@ -653,4 +653,91 @@ class NDMatcher(BaseMatcher):
         )
 
 
+# ---------------------------------------------------------------------------
+# Rule-set marker vocabulary — bare "Rule N" short-form attribution
+# ---------------------------------------------------------------------------
+# Ported from ndcourts-mcp notes.py (rule_set_markers / _SPELLED_MARKERS),
+# proven on the opinion corpus in get_notes_of_decisions. A marker is any
+# in-text mention of a rule set — compact prefix ("N.D.R.Civ.P.", spacing-
+# tolerant) or spelled-out name ("Rules of Civil Procedure") — used by
+# scanner._resolve_pin_cites to attribute a bare "Rule 60(b)" to a set.
+# Canonical names match this module's normalized display prefixes so an
+# attributed set can be compared against full-cite normalized forms. Federal
+# sets are in the vocabulary as decoys: a bare "Rule 12" following a
+# Fed. R. Civ. P. discussion must not be attributed to the ND set.
+
+
+def _flex_prefix_pattern(prefix: str) -> str:
+    """A regex for a rule-set prefix tolerant of spacing variants.
+
+    'N.D.R.Civ.P.' matches 'N.D.R.Civ.P.', 'N. D. R. Civ. P.'; the spaced
+    canonicals ('N.D. Sup. Ct. Admin. R.') also match their compact forms."""
+    out = []
+    for ch in prefix:
+        if ch == ".":
+            out.append(r"\.\s*")
+        elif ch == " ":
+            out.append(r"\s*")
+        else:
+            out.append(re.escape(ch))
+    return "".join(out)
+
+
+# Spelled-out names for the commonly narrated rule sets (the compact-dotted
+# marker for every set is generated from its canonical prefix).
+_SPELLED_MARKERS = {
+    "N.D.R.Civ.P.": [r"North Dakota Rules of Civil Procedure",
+                     r"Rules of Civil Procedure"],
+    "N.D.R.Crim.P.": [r"Rules of Criminal Procedure"],
+    "N.D.R.Ev.": [r"Rules of Evidence"],
+    "N.D.R.App.P.": [r"Rules of Appellate Procedure"],
+    "N.D.R.Ct.": [r"Rules of Court"],
+    "N.D.R.Juv.P.": [r"Rules of Juvenile Procedure"],
+    "N.D. Sup. Ct. Admin. R.": [r"Administrative Rule"],
+    "N.D.R. Prof. Conduct": [r"Rules of Professional Conduct"],
+    "N.D. Code Jud. Conduct": [r"Code of Judicial Conduct"],
+    "Fed. R. Civ. P.": [r"Federal Rules of Civil Procedure"],
+    "Fed. R. Crim. P.": [r"Federal Rules of Criminal Procedure"],
+    "Fed. R. Evid.": [r"Federal Rules of Evidence"],
+    "Fed. R. App. P.": [r"Federal Rules of Appellate Procedure"],
+    "Fed. R. Bankr. P.": [r"Federal Rules of Bankruptcy Procedure"],
+}
+
+_MARKER_RULE_SETS = (
+    "N.D.R.Civ.P.", "N.D.R.Crim.P.", "N.D.R.Ev.", "N.D.R.App.P.",
+    "N.D.R.Ct.", "N.D.R.Juv.P.", "N.D. Sup. Ct. Admin. R.",
+    "N.D.R. Prof. Conduct", "N.D. Code Jud. Conduct",
+    "Fed. R. Civ. P.", "Fed. R. Crim. P.", "Fed. R. Evid.",
+    "Fed. R. App. P.", "Fed. R. Bankr. P.",
+)
+
+RULE_SET_JURISDICTION = {
+    prefix: ("us" if prefix.startswith("Fed.") else "nd")
+    for prefix in _MARKER_RULE_SETS
+}
+
+_MARKER_PATTERNS: list[tuple[str, re.Pattern]] = [
+    (canon, re.compile(pat))
+    for canon in _MARKER_RULE_SETS
+    for pat in [_flex_prefix_pattern(canon)] + _SPELLED_MARKERS.get(canon, [])
+]
+
+
+def rule_set_markers(text: str) -> list[tuple[int, int, str]]:
+    """Every rule-set mention in ``text`` as (start, end, canonical_prefix),
+    sorted by position. A marker fully contained in a longer one is dropped
+    ('Rules of Civil Procedure' inside 'Federal Rules of Civil Procedure')."""
+    hits: list[tuple[int, int, str]] = []
+    for canon, pat in _MARKER_PATTERNS:
+        for m in pat.finditer(text):
+            hits.append((m.start(), m.end(), canon))
+    hits.sort(key=lambda h: (h[0], -(h[1] - h[0])))
+    kept: list[tuple[int, int, str]] = []
+    for s, e, c in hits:
+        if kept and s >= kept[-1][0] and e <= kept[-1][1]:
+            continue  # contained in the previous (longer) marker
+        kept.append((s, e, c))
+    return kept
+
+
 register(4, NDMatcher())

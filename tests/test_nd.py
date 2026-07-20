@@ -184,6 +184,29 @@ def test_nd_rule_civ_p():
     assert "ndcourts.gov" in found[0].sources[0].url
 
 
+def test_rule_set_markers_compact_and_spaced():
+    from jetcite.patterns.states.nd import rule_set_markers
+
+    hits = rule_set_markers("Under N.D.R.Civ.P. 12 and N. D. R. Civ. P. 56")
+    assert [h[2] for h in hits] == ["N.D.R.Civ.P.", "N.D.R.Civ.P."]
+
+
+def test_rule_set_markers_spelled_out():
+    from jetcite.patterns.states.nd import rule_set_markers
+
+    hits = rule_set_markers("the Rules of Criminal Procedure govern")
+    assert [h[2] for h in hits] == ["N.D.R.Crim.P."]
+
+
+def test_rule_set_markers_containment_dedup():
+    """'Rules of Civil Procedure' inside 'Federal Rules of Civil Procedure'
+    must not produce a second, ND-attributed marker."""
+    from jetcite.patterns.states.nd import rule_set_markers
+
+    hits = rule_set_markers("the Federal Rules of Civil Procedure apply")
+    assert [h[2] for h in hits] == ["Fed. R. Civ. P."]
+
+
 def test_nd_rule_trailing_form_rejects_semicolon_gap():
     """A semicolon is a string-cite boundary: "2024 ND 4; N.D.R.Civ.P. 60(b)"
     must not splice the neutral cite's "4" into a phantom rule cite."""

@@ -161,6 +161,31 @@ def _link_pin(pin: Citation, parent: Citation) -> None:
 _PARA_PINPOINT_RE = re.compile(r"¶¶?\s*(\d+(?:\s*[-–]\s*\d+)?)")
 _PAGE_PINPOINT_RE = re.compile(r"(?:^|at\s+)(\d+(?:\s*[-–]\s*\d+)?)")
 
+# What may sit between a bare "Rule 60(b)" and a trailing rule-set marker:
+# an optional parenthetical pinpoint, commas/space, an optional "of the".
+# Anything more ("Rule 12 and N.D.R.Ev. 403") rejects trailing attribution.
+# (Ported from ndcourts-mcp notes.py.)
+_RULE_TRAILING_GAP_RE = re.compile(
+    r"[\s,]*(?:\([^)]{1,20}\))?[\s,]*(?:of\s+the\s+)?$"
+)
+
+
+def _split_rule_normalized(normalized: str) -> tuple[str, str] | None:
+    """Split a full rule cite's normalized form into (set_prefix, number).
+
+    "N.D.R.Civ.P. 60" → ("N.D.R.Civ.P.", "60"); a federal form's trailing
+    subsection is stripped ("Fed. R. Civ. P. 12(b)(6)" → number "12").
+    Non-numeric rule identifiers (Student Practice roman numerals, Judicial
+    Conduct canons) return None — bare "Rule N" short forms are numeric.
+    """
+    parts = normalized.rsplit(" ", 1)
+    if len(parts) != 2:
+        return None
+    number = re.sub(r"\(.*$", "", parts[1])
+    if not re.fullmatch(r"\d{1,4}(?:\.\d{1,2}){0,2}", number):
+        return None
+    return parts[0], number
+
 
 def _inherit_pinpoint(pin: Citation, antecedent: Citation) -> None:
     """A bare Id. adopts the antecedent's pinpoint.
@@ -219,6 +244,9 @@ def _resolve_pin_cites(
         resolved transitively. Kept unresolved when the antecedent is an
         ambiguous string cite; a bare "Id." with no antecedent at all is
         dropped as noise.
+      rule_pin — bare "Rule 60(b)" attributed to a rule set by the marker
+        ladder (see _resolve_rule_pin); unattributable candidates are
+        dropped, matching the bare-name doctrine.
     """
     if not pin_candidates:
         return []
@@ -307,6 +335,77 @@ def _resolve_pin_cites(
         # "C v. D" put periods inside the separator legitimately.)
         return stripped.startswith(";") and len(stripped) <= 80
 
+    # Rule-pin attribution state, built only when rule_pin candidates exist
+    # (rule_set_markers scans the whole text).
+    rule_markers: list[tuple[int, int, str]] | None = None
+    rule_fulls: dict[tuple[str, str], list[Citation]] = {}
+    sets_by_number: dict[str, set[str]] = {}
+    if any(p.components.get("shape") == "rule_pin" for p in pin_candidates):
+        from jetcite.patterns.states.nd import rule_set_markers
+
+        rule_markers = rule_set_markers(text)
+        for c in citations:
+            if c.cite_type != CitationType.COURT_RULE:
+                continue
+            split = _split_rule_normalized(c.normalized)
+            if split is None:
+                continue
+            rule_fulls.setdefault(split, []).append(c)
+            sets_by_number.setdefault(split[1], set()).add(split[0])
+
+    def resolve_rule_pin(pin: Citation, start: int, end: int) -> bool:
+        """Attribute a bare "Rule N(x)" to a rule set and link it.
+
+        Ladder (ported from ndcourts-mcp notes.py), most reliable first:
+        (1) explicit trailing marker through a constrained gap ("Rule 60(b)
+        of the North Dakota Rules of Civil Procedure"); (2) nearest
+        preceding rule-set marker anywhere earlier; (3) sole set: the
+        document's full cites use this number under exactly one set.
+        Otherwise drop (return False) — false-positive control.
+
+        Linking: the nearest preceding full cite of the attributed set and
+        number; else the earliest one anywhere (bare form first, full cite
+        later). When no full cite of that set+number exists, the parent is
+        synthesized from set + number — but only when the attribution is
+        explicit (trailing) or uncontradicted (no other set in the document
+        cites this number). A nearest-marker attribution that conflicts
+        with the document's full cites is dropped: a miss is recoverable, a
+        confidently wrong parent is not.
+        """
+        number = pin.components["rule"]
+        attributed = rung = None
+        for ms, _me, canon in rule_markers:
+            if end <= ms <= end + 80 and _RULE_TRAILING_GAP_RE.fullmatch(text[end:ms]):
+                attributed, rung = canon, "trailing"
+                break
+        if attributed is None:
+            preceding = [c for ms, _me, c in rule_markers if ms < start]
+            if preceding:
+                attributed, rung = preceding[-1], "marker"
+        if attributed is None:
+            sets = sets_by_number.get(number, set())
+            if len(sets) == 1:
+                attributed, rung = next(iter(sets)), "sole_set"
+        if attributed is None:
+            return False
+
+        members = rule_fulls.get((attributed, number), [])
+        parent = nearest_preceding(members, start)
+        if parent is None and members:
+            parent = min(members, key=lambda c: c.position)
+        if parent is None:
+            other_sets = sets_by_number.get(number, set()) - {attributed}
+            if rung != "trailing" and other_sets:
+                return False
+            pin.parent_normalized = f"{attributed} {number}"
+            from jetcite.patterns.states.nd import RULE_SET_JURISDICTION
+            pin.jurisdiction = RULE_SET_JURISDICTION.get(
+                attributed, pin.jurisdiction)
+        else:
+            _link_pin(pin, parent)
+        pin.components["attribution"] = rung
+        return True
+
     resolved: list[Citation] = []
     for pin in sorted(pin_candidates, key=lambda c: c.position):
         start, end = pin.position, pin.position + len(pin.raw_text)
@@ -338,6 +437,10 @@ def _resolve_pin_cites(
             pin.antecedent_name = pin.components["name"]
             _link_pin(pin, parallel_member_for(pin, parent, start))
             resolved.append(pin)
+
+        elif shape == "rule_pin":
+            if resolve_rule_pin(pin, start, end):
+                resolved.append(pin)
 
         elif shape == "id":
             nearest_full = nearest_preceding(id_antecedents, start)
@@ -414,7 +517,8 @@ def scan_text(
     direct opinion PDF URLs via HTTP.
 
     If include_pin_cites is True, Bluebook short forms ("491 F.3d at 363",
-    "Goss at 363", "Id. ¶ 14") are returned as additional entries with
+    "Goss at 363", "Id. ¶ 14", bare "Rule 60(b)") are returned as
+    additional entries with
     ``is_pin_cite=True``, linked to their parent full cite via
     ``parent_normalized`` (None when unresolved) and inheriting the parent's
     sources. Pin cites never enter dedup and never affect the full-citation
