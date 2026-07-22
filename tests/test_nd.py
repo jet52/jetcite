@@ -303,10 +303,41 @@ def test_nd_const_old_rejects_modern_context_shapes():
         olds = [r for r in m.find_all(text)
                 if r.components.get("numbering") == "1889"]
         assert olds == [], (text, olds)
+    # statute-shaped numbers after a Constitution marker stay dead
+    for text, want in (
+        ("Sec. 173, Constitution, Sec. 11-1002, NDRC 1943.",
+         ["N.D. Const. § 173"]),
+        ("Constitution of the State of North Dakota, Section 54-03-01 "
+         "of the North Dakota Century Code", []),
+    ):
+        olds = [r.normalized for r in m.find_all(text)
+                if r.components.get("numbering") == "1889"]
+        assert olds == want, (text, olds)
+    # ...but true-positive neighbors of those guards survive:
     # a new sentence starting "Article" does not poison a preceding old cite
     results = m.find_all(
         "under § 176 of the Constitution. Article VI provides otherwise")
     assert [r.normalized for r in results] == ["N.D. Const. § 176"]
+    # a semicolon ends a string cite — the ND cite after a federal one lives
+    results = m.find_all("U. S. Const. art. 1, § 10; N. D. Const. § 16.")
+    assert "N.D. Const. § 16" in [r.normalized for r in results]
+    # ...as does the older comma-separated string-cite style: an ND-marked
+    # lead cite is never scoped by the preceding federal article reference
+    results = m.find_all("U.S.Const. art. 1, § 10, N.D.Const. § 16.")
+    assert "N.D. Const. § 16" in [r.normalized for r in results]
+    # "the new constitution § 5" refers to the replacement document
+    olds = [r for r in m.find_all("The new constitution § 5 provides")
+            if r.components.get("numbering") == "1889"]
+    assert olds == []
+    # a section RANGE keeps its start section
+    olds = [r.normalized for r in m.find_all(
+        "N.Dak. Constitution, Secs. 130, 166–173, 175")
+        if r.components.get("numbering") == "1889"]
+    assert olds == ["N.D. Const. § 130", "N.D. Const. § 166"]
+    # an arabic-numbered AMENDMENT article after "Constitution," is old context
+    results = m.find_all(
+        "section 202 of the Constitution, article 28 of Amendments thereto.")
+    assert [r.normalized for r in results] == ["N.D. Const. § 202"]
 
 
 def test_nd_const_old_rejects_out_of_range():

@@ -115,12 +115,16 @@ _ND_CONST_LONG = re.compile(
 
 # One leading section number plus an optional enumeration tail
 # ("185 and 186", "179, 180, and 181"); each number becomes its own cite.
-# Old numbering is integer-only (1-217): a decimal/dash continuation means the
+# Old numbering is integer-only (1-217): a DECIMAL continuation means the
 # number belongs to something else ("N.D. Const., Section 16.1-11-08,
-# N.D.C.C." is a statute cite in a string cite, not old § 16).
+# N.D.C.C." is a statute cite in a string cite, not old § 16), as does a
+# statute-shaped dash chain ("Sec. 11-1002, NDRC 1943" = dash + 4 digits;
+# "Section 54-03-01" = dash-separated chain). A section RANGE is kept —
+# "Secs. 130, 166–173" cites old § 166 (range tails stay unparsed).
+_NOT_STATUTE_NUM = r'(?!\.\d)(?![-–—]\d{4})(?![-–—]\d{1,3}[.\-–—]\d)'
 _OLD_SECTION_LIST = (
-    r'(\d{1,3})(?!\d)(?![.\-–—]\d)'
-    r'((?:\s*,\s*(?:and\s+)?\d{1,3}|\s+and\s+\d{1,3})*)(?!\d)(?![.\-–—]\d)'
+    rf'(\d{{1,3}})(?!\d){_NOT_STATUTE_NUM}'
+    rf'((?:\s*,\s*(?:and\s+)?\d{{1,3}}|\s+and\s+\d{{1,3}})*)(?!\d){_NOT_STATUTE_NUM}'
 )
 
 # Optional spelled-out attribution after "Constitution": "of North Dakota",
@@ -143,12 +147,14 @@ _ND_CONST_OLD_TRAIL = re.compile(
     r'Const(?:itution\b|\.)'
     rf'{_OLD_CONST_OF_ND}'
     r'(?!\s+of\b)'
-    # An article reference right after "Const." means the section numbers
+    # A ROMAN-numbered article right after "Const." means the section numbers
     # belong to a MODERN article-scoped cite read tail-first ("Sections 1
-    # and 10, N.D. Const. art. III"); ", Article I" likewise. A new sentence
+    # and 10, N.D. Const. art. III"); ", Article I" likewise. Arabic-numbered
+    # ("Constitution, article 28 of Amendments thereto") is a pre-1981
+    # amendment article — a real old-numbering context, kept. A new sentence
     # ("... Constitution. Article VI provides") is not rejected: the no-comma
     # branch requires the abbreviated "Art." form.
-    r'(?!\s*,\s*[Aa]rt(?:icle)?\b)(?!\s+[Aa]rt\.)',
+    r'(?!\s*,\s*[Aa]rt(?:icle)?\b\.?\s*\[?[IVXLC])(?!\s+[Aa]rt\b\.\s*\[?[IVXLC])',
     re.IGNORECASE,
 )
 
@@ -175,7 +181,9 @@ _ND_CONST_OLD_LEAD = re.compile(
 # an intervening star-page marker ("Article VI, [*348] Section 3 of the ...").
 _OLD_CONST_BAD_PREFIX = re.compile(
     r'\b(?:[Aa]rt(?:icle)?\.?\s*\[?[IVXLCivxlc\d]+\]?\s*[,.]?'
-    r'(?:\s*(?:§§?|[Ss]ec(?:tions?)?\.?)\s*\d+(?:\.\d+)?[,;]?\s*(?:and\s+)?)*'
+    # comma/and only — a SEMICOLON ends a string cite, so "U.S. Const.
+    # art. 1, § 10; N.D. Const. § 16" must not chain into the ND cite
+    r'(?:\s*(?:§§?|[Ss]ec(?:tions?)?\.?)\s*\d+(?:\.\d+)?,?\s*(?:and\s+)?)*'
     r'(?:\s*\[\*\d+\])?'
     r'|U\.?\s*S\.?|United\s+States|[Ff]ed(?:eral)?\.?)\s*$'
 )
@@ -184,9 +192,14 @@ _OLD_CONST_BAD_PREFIX = re.compile(
 # capitalized word is another jurisdiction's constitution ("Montana
 # Constitution, § 2, art. 8") — the closed attribution vocabulary can't see
 # words the pattern never consumes. Allowlist the capitalized words that
-# legitimately precede an ND "Constitution, § N" in running text.
+# legitimately precede an ND "Constitution, § N" in running text. A lowercase
+# "new"/"proposed"/"revised" marks a REPLACEMENT document ("The new
+# constitution § 5" = the post-1981 text, cited article-form elsewhere), not
+# the 1889 numbering.
 _BARE_CONST_OK_PREFIX = frozenset({"The", "State", "Our", "Said"})
+_BARE_CONST_BAD_LOWER = frozenset({"new", "proposed", "revised"})
 _CAP_WORD_BEFORE = re.compile(r'([A-Z][a-zA-Z]+)\s+$')
+_WORD_BEFORE = re.compile(r'([A-Za-z]+)\s+$')
 
 # ---------------------------------------------------------------------------
 # ND Court Rules
@@ -568,9 +581,17 @@ class NDMatcher(BaseMatcher):
         start, end = m.start(), m.end()
         if any(s < end and start < e for s, e in modern_spans):
             return
-        if _OLD_CONST_BAD_PREFIX.search(text, max(0, start - 30), start):
-            return
+        # A match carrying its own N.D. marker ("N.D. Const. § 16") cannot be
+        # scoped by a preceding article or federal reference — "U.S. Const.
+        # art. 1, § 10, N.D. Const. § 16" is a string cite whose ND member is
+        # real. The prefix guard applies only to bare/section-first forms.
+        if m.group(0)[:1].lower() != "n":
+            if _OLD_CONST_BAD_PREFIX.search(text, max(0, start - 30), start):
+                return
         if m.group(0)[:5].lower() == "const":
+            w = _WORD_BEFORE.search(text, max(0, start - 25), start)
+            if w and w.group(1) in _BARE_CONST_BAD_LOWER:
+                return
             cap = _CAP_WORD_BEFORE.search(text, max(0, start - 25), start)
             if cap and cap.group(1) not in _BARE_CONST_OK_PREFIX:
                 return
