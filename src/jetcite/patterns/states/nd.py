@@ -115,7 +115,13 @@ _ND_CONST_LONG = re.compile(
 
 # One leading section number plus an optional enumeration tail
 # ("185 and 186", "179, 180, and 181"); each number becomes its own cite.
-_OLD_SECTION_LIST = r'(\d{1,3})(?!\d)((?:\s*,\s*(?:and\s+)?\d{1,3}|\s+and\s+\d{1,3})*)(?!\d)'
+# Old numbering is integer-only (1-217): a decimal/dash continuation means the
+# number belongs to something else ("N.D. Const., Section 16.1-11-08,
+# N.D.C.C." is a statute cite in a string cite, not old § 16).
+_OLD_SECTION_LIST = (
+    r'(\d{1,3})(?!\d)(?![.\-–—]\d)'
+    r'((?:\s*,\s*(?:and\s+)?\d{1,3}|\s+and\s+\d{1,3})*)(?!\d)(?![.\-–—]\d)'
+)
 
 # Optional spelled-out attribution after "Constitution": "of North Dakota",
 # "of the State of North Dakota", "of the state", "of 1889".
@@ -129,14 +135,20 @@ _OLD_CONST_OF_ND = (
 # "section 2 of the United States Constitution" cannot match; the lookahead
 # additionally rejects "of the Constitution of the United States".
 _ND_CONST_OLD_TRAIL = re.compile(
-    r'(?:§§?|[Ss]ec(?:tion)?s?\.?)\s*'
+    r'(?:§§?|(?<![A-Za-z])[Ss]ec(?:tion)?s?\.?)\s*'
     rf'{_OLD_SECTION_LIST}'
     r'[,\s]*(?:of\s+)?(?:the\s+|our\s+)?'
     r'(?:(?:1889|original|old|former)\s+)?'
     r'(?:(?:North\s+Dakota|N[.\s]*D[.\s]*|state)\s+)?'
     r'Const(?:itution\b|\.)'
     rf'{_OLD_CONST_OF_ND}'
-    r'(?!\s+of\b)',
+    r'(?!\s+of\b)'
+    # An article reference right after "Const." means the section numbers
+    # belong to a MODERN article-scoped cite read tail-first ("Sections 1
+    # and 10, N.D. Const. art. III"); ", Article I" likewise. A new sentence
+    # ("... Constitution. Article VI provides") is not rejected: the no-comma
+    # branch requires the abbreviated "Art." form.
+    r'(?!\s*,\s*[Aa]rt(?:icle)?\b)(?!\s+[Aa]rt\.)',
     re.IGNORECASE,
 )
 
@@ -146,17 +158,25 @@ _ND_CONST_OLD_TRAIL = re.compile(
 _ND_CONST_OLD_LEAD = re.compile(
     r'(?:N(?:orth)?[\s.]*D(?:akota)?[\s.]*Const(?:itution\b|\.)|Constitution\b)'
     rf'{_OLD_CONST_OF_ND}'
-    r'[,\s]*(?:§§?|[Ss]ec(?:tion)?s?\.?)\s*'
-    rf'{_OLD_SECTION_LIST}',
+    r'[,\s]*(?:§§?|(?<![A-Za-z])[Ss]ec(?:tion)?s?\.?)\s*'
+    rf'{_OLD_SECTION_LIST}'
+    # "N.D.Const., section 6, of that same Article" — the section number is
+    # scoped to an article named earlier in the sentence, not old numbering.
+    r'(?!,?\s*of\s+th(?:at|e)\s+same\s+[Aa]rt)',
     re.IGNORECASE,
 )
 
 # Reject an old-form match when the immediately preceding text shows it is
 # really an article-scoped cite ("Article II, section 1 of the Constitution",
 # including a bracket-altered quotation "article [I], section 1 ...")
-# or a federal one ("United States Constitution, § 2").
+# or a federal one ("United States Constitution, § 2"). The article branch
+# tolerates an intervening enumeration chain ("Article I, § 3 and § 4 of
+# the ..." — the § 4 match is the tail of the SAME article-scoped cite) and
+# an intervening star-page marker ("Article VI, [*348] Section 3 of the ...").
 _OLD_CONST_BAD_PREFIX = re.compile(
     r'\b(?:[Aa]rt(?:icle)?\.?\s*\[?[IVXLCivxlc\d]+\]?\s*[,.]?'
+    r'(?:\s*(?:§§?|[Ss]ec(?:tions?)?\.?)\s*\d+(?:\.\d+)?[,;]?\s*(?:and\s+)?)*'
+    r'(?:\s*\[\*\d+\])?'
     r'|U\.?\s*S\.?|United\s+States|[Ff]ed(?:eral)?\.?)\s*$'
 )
 

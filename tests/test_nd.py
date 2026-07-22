@@ -281,6 +281,34 @@ def test_nd_const_bracket_altered_article_form():
     assert all(r.components.get("numbering") != "1889" for r in results)
 
 
+def test_nd_const_old_rejects_modern_context_shapes():
+    m = NDMatcher()
+    # 2026-07-22 corpus finds: post-1981 opinions writing MODERN cites in
+    # shapes that leaked through to the old-numbering patterns.
+    for text in (
+        # "subsection 21" must not match as "section 21"
+        "Article IV, Section 43, subsection 21, of the North Dakota Constitution",
+        # statute number in a string cite after N.D. Const.
+        "under Art. V, Sec. 12, N.D. Const., Section 16.1-11-08, N.D.C.C.",
+        # article named AFTER the Const marker (tail-first modern cite)
+        "Sections 1 and 10, N.D. Const. art. III, provide that",
+        "Section 25 of the North Dakota Constitution, Article I",
+        # enumeration continuing an article-scoped cite
+        "with Article I, § 3 and § 4 of the North Dakota Constitution",
+        # star-page marker between article and section
+        "became Article VI, [*348] Section 3 of the North Dakota Constitution.",
+        # section scoped to an article named earlier in the sentence
+        "Article VI, section 3, N.D.Const., section 6, of that same Article",
+    ):
+        olds = [r for r in m.find_all(text)
+                if r.components.get("numbering") == "1889"]
+        assert olds == [], (text, olds)
+    # a new sentence starting "Article" does not poison a preceding old cite
+    results = m.find_all(
+        "under § 176 of the Constitution. Article VI provides otherwise")
+    assert [r.normalized for r in results] == ["N.D. Const. § 176"]
+
+
 def test_nd_const_old_rejects_out_of_range():
     m = NDMatcher()
     assert m.find_all("section 218 of the Constitution") == []
