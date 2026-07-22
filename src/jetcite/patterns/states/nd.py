@@ -5,7 +5,11 @@ import re
 from jetcite.models import Citation, CitationType, Source
 from jetcite.patterns import register
 from jetcite.patterns.base import BaseMatcher
-from jetcite.sources.ndconst import nd_constitution_url
+from jetcite.sources.ndconst import (
+    OLD_SECTION_MAX,
+    nd_constitution_old_url,
+    nd_constitution_url,
+)
 from jetcite.sources.ndcourts import nd_court_rule_url, nd_local_rule_url
 from jetcite.sources.ndlegis import ndac_url, ndcc_chapter_url, ndcc_section_url
 
@@ -101,6 +105,58 @@ _ND_CONST_LONG = re.compile(
     r'(?:(?:\([a-z\d]*\))*|\D)\s+of\s+the\s+'
     r'N(?:orth)?\s*D(?:akota)?\s*Const(?:itution)?',
     re.IGNORECASE,
+)
+
+# Pre-1981 (1889 numbering) ND Constitution: sections were numbered
+# continuously 1-217 with no article, so old cites are section-only —
+# "section 121 of the Constitution," "Section 121, N.D. Const.,"
+# "N.D. Const. § 121." Normalized to "N.D. Const. § NNN" (the
+# const_crosswalk old_cite format).
+
+# One leading section number plus an optional enumeration tail
+# ("185 and 186", "179, 180, and 181"); each number becomes its own cite.
+_OLD_SECTION_LIST = r'(\d{1,3})(?!\d)((?:\s*,\s*(?:and\s+)?\d{1,3}|\s+and\s+\d{1,3})*)(?!\d)'
+
+# Optional spelled-out attribution after "Constitution": "of North Dakota",
+# "of the State of North Dakota", "of the state", "of 1889".
+_OLD_CONST_OF_ND = (
+    r'(?:\s+of\s+(?:the\s+)?(?:(?:State\s+of\s+)?North\s+Dakota|state\b|1889))?'
+)
+
+# Trailing form: "section(s) N [...] of the [state|North Dakota|1889]
+# Constitution [of North Dakota]" / "Section N, N.D. Const." The attribution
+# vocabulary is closed (state, our, N.D., 1889, original...), so
+# "section 2 of the United States Constitution" cannot match; the lookahead
+# additionally rejects "of the Constitution of the United States".
+_ND_CONST_OLD_TRAIL = re.compile(
+    r'(?:§§?|[Ss]ec(?:tion)?s?\.?)\s*'
+    rf'{_OLD_SECTION_LIST}'
+    r'[,\s]*(?:of\s+)?(?:the\s+|our\s+)?'
+    r'(?:(?:1889|original|old|former)\s+)?'
+    r'(?:(?:North\s+Dakota|N[.\s]*D[.\s]*|state)\s+)?'
+    r'Const(?:itution\b|\.)'
+    rf'{_OLD_CONST_OF_ND}'
+    r'(?!\s+of\b)',
+    re.IGNORECASE,
+)
+
+# Leading form: "N.D. Const. § 121", "Constitution, § 121". A bare "Const."
+# (no ND marker, not spelled out) is NOT accepted — that shape belongs to
+# other jurisdictions' cites ("Iowa Const. ...").
+_ND_CONST_OLD_LEAD = re.compile(
+    r'(?:N(?:orth)?[\s.]*D(?:akota)?[\s.]*Const(?:itution\b|\.)|Constitution\b)'
+    rf'{_OLD_CONST_OF_ND}'
+    r'[,\s]*(?:§§?|[Ss]ec(?:tion)?s?\.?)\s*'
+    rf'{_OLD_SECTION_LIST}',
+    re.IGNORECASE,
+)
+
+# Reject an old-form match when the immediately preceding text shows it is
+# really an article-scoped cite ("Article II, section 1 of the Constitution")
+# or a federal one ("United States Constitution, § 2").
+_OLD_CONST_BAD_PREFIX = re.compile(
+    r'\b(?:[Aa]rt(?:icle)?\.?\s*[IVXLCivxlc\d]+\s*[,.]?'
+    r'|U\.?\s*S\.?|United\s+States|[Ff]ed(?:eral)?\.?)\s*$'
 )
 
 # ---------------------------------------------------------------------------
@@ -464,6 +520,43 @@ class NDMatcher(BaseMatcher):
                 components={"article": article, "section": section},
                 sources=[Source("ndconst", nd_constitution_url(article, section))],
                 position=m.start(),
+            ))
+
+        # Pre-1981 (1889 numbering) forms. Article-form matches above take
+        # precedence: an old-form match overlapping one is the tail of an
+        # article-scoped cite ("Article VI, section 2 of the North Dakota
+        # Constitution"), not an old cite.
+        modern_spans = [
+            (c.position, c.position + len(c.raw_text))
+            for c in results
+            if c.cite_type == CitationType.CONSTITUTION
+        ]
+        for pattern in (_ND_CONST_OLD_TRAIL, _ND_CONST_OLD_LEAD):
+            for m in pattern.finditer(text):
+                self._emit_old_const(m, text, results, modern_spans)
+
+    def _emit_old_const(self, m, text, results, modern_spans):
+        start, end = m.start(), m.end()
+        if any(s < end and start < e for s, e in modern_spans):
+            return
+        if _OLD_CONST_BAD_PREFIX.search(text, max(0, start - 30), start):
+            return
+        # (offset, number) for the lead section and any enumeration tail.
+        sections = [(m.start(1), m.group(1))]
+        for num in re.finditer(r'\d{1,3}', m.group(2)):
+            sections.append((m.start(2) + num.start(), num.group(0)))
+        if any(not 1 <= int(n) <= OLD_SECTION_MAX for _, n in sections):
+            return
+        for pos, n in sections:
+            url = nd_constitution_old_url(n)
+            results.append(Citation(
+                raw_text=m.group(0) if pos == sections[0][0] else text[pos:end],
+                cite_type=CitationType.CONSTITUTION,
+                jurisdiction="nd",
+                normalized=f"N.D. Const. § {n}",
+                components={"section": n, "numbering": "1889"},
+                sources=[Source("ndconst", url)] if url else [],
+                position=m.start() if pos == sections[0][0] else pos,
             ))
 
     def _match_nd_rules(self, text: str, results: list[Citation]):

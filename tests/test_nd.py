@@ -175,6 +175,95 @@ def test_nd_const_long():
     assert results[0].normalized == "N.D. Const. art. VI, § 2"
 
 
+def test_nd_const_old_of_the():
+    m = NDMatcher()
+    for text in (
+        "Section 121 of the Constitution",
+        "section 121 of the North Dakota Constitution",
+        "section 121 of the state Constitution",
+        "section 121 of our Constitution",
+        "Section 121 of the Constitution of North Dakota",
+        "Section 121 of the Constitution of the State of North Dakota",
+        "§ 121, of the Constitution",
+    ):
+        results = m.find_all(text)
+        assert len(results) == 1, text
+        assert results[0].normalized == "N.D. Const. § 121", text
+        assert results[0].components["numbering"] == "1889"
+        assert results[0].sources[0].url == "https://ndconst.org/artii/sec1/", text
+
+
+def test_nd_const_old_lead_and_trail_comma():
+    m = NDMatcher()
+    for text in (
+        "N.D. Const. § 121",
+        "N.D.Const. § 121",
+        "Constitution, § 121",
+        "North Dakota Constitution, section 121",
+        "Section 121, N.D. Const.",
+        "Section 121, North Dakota Constitution",
+        "section 121, Const.",
+    ):
+        results = m.find_all(text)
+        assert len(results) == 1, text
+        assert results[0].normalized == "N.D. Const. § 121", text
+
+
+def test_nd_const_old_enumeration():
+    m = NDMatcher()
+    results = m.find_all("under Sections 185 and 186 of the Constitution")
+    assert sorted(r.normalized for r in results) == [
+        "N.D. Const. § 185", "N.D. Const. § 186"]
+    assert results[0].sources[0].url == "https://ndconst.org/artx/sec18/"
+    assert results[1].sources[0].url == "https://ndconst.org/artx/sec12/"
+
+    results = m.find_all("sections 179, 180, and 181 of the Constitution")
+    assert sorted(r.normalized for r in results) == [
+        "N.D. Const. § 179", "N.D. Const. § 180", "N.D. Const. § 181"]
+
+
+def test_nd_const_old_unmapped_has_no_source():
+    # Old § 25 was superseded (no clean modern location in the 1981
+    # crosswalk): the cite still parses, but carries no URL.
+    m = NDMatcher()
+    results = m.find_all("Section 25 of the Constitution")
+    assert len(results) == 1
+    assert results[0].normalized == "N.D. Const. § 25"
+    assert results[0].sources == []
+
+
+def test_nd_const_old_not_confused_with_article_form():
+    m = NDMatcher()
+    # Article-scoped cites must yield exactly the modern cite, no phantom
+    # old-numbering cite from the "section N of the ... Constitution" tail.
+    results = m.find_all("Article VI, section 2 of the North Dakota Constitution")
+    assert [r.normalized for r in results] == ["N.D. Const. art. VI, § 2"]
+    results = m.find_all("Article II, section 1 of the Constitution")
+    assert results == []
+    results = m.find_all("N.D. Const. art. I, § 20")
+    assert [r.normalized for r in results] == ["N.D. Const. art. I, § 20"]
+
+
+def test_nd_const_old_rejects_federal_and_sister_state():
+    m = NDMatcher()
+    for text in (
+        "section 1 of the Constitution of the United States",
+        "section 2 of the United States Constitution",
+        "section 2 of the U.S. Constitution",
+        "United States Constitution, § 2",
+        "section 15 of the Constitution of Montana",
+        "section 15 of the Constitution of the state of Montana",
+    ):
+        assert m.find_all(text) == [], text
+
+
+def test_nd_const_old_rejects_out_of_range():
+    m = NDMatcher()
+    assert m.find_all("section 218 of the Constitution") == []
+    assert m.find_all("section 300 of the Constitution") == []
+    assert m.find_all("Constitution, § 999") == []
+
+
 def test_nd_rule_civ_p():
     m = NDMatcher()
     results = m.find_all("N.D.R.Civ.P. Rule 56")
