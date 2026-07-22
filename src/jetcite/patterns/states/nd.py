@@ -101,7 +101,7 @@ _ND_CONST_SHORT = re.compile(
 )
 
 _ND_CONST_LONG = re.compile(
-    r'(?:Article|Art\.?)\s+([IVX]+)[,\s]+(?:section|sec\.?)\s+(\d+)'
+    r'(?:Article|Art\.?)\s+\[?([IVX]+)\]?[,\s]+(?:section|sec\.?)\s+(\d+)'
     r'(?:(?:\([a-z\d]*\))*|\D)\s+of\s+the\s+'
     r'N(?:orth)?\s*D(?:akota)?\s*Const(?:itution)?',
     re.IGNORECASE,
@@ -152,12 +152,21 @@ _ND_CONST_OLD_LEAD = re.compile(
 )
 
 # Reject an old-form match when the immediately preceding text shows it is
-# really an article-scoped cite ("Article II, section 1 of the Constitution")
+# really an article-scoped cite ("Article II, section 1 of the Constitution",
+# including a bracket-altered quotation "article [I], section 1 ...")
 # or a federal one ("United States Constitution, § 2").
 _OLD_CONST_BAD_PREFIX = re.compile(
-    r'\b(?:[Aa]rt(?:icle)?\.?\s*[IVXLCivxlc\d]+\s*[,.]?'
+    r'\b(?:[Aa]rt(?:icle)?\.?\s*\[?[IVXLCivxlc\d]+\]?\s*[,.]?'
     r'|U\.?\s*S\.?|United\s+States|[Ff]ed(?:eral)?\.?)\s*$'
 )
+
+# A bare-"Constitution" lead match ("Constitution, § 2") preceded by a
+# capitalized word is another jurisdiction's constitution ("Montana
+# Constitution, § 2, art. 8") — the closed attribution vocabulary can't see
+# words the pattern never consumes. Allowlist the capitalized words that
+# legitimately precede an ND "Constitution, § N" in running text.
+_BARE_CONST_OK_PREFIX = frozenset({"The", "State", "Our", "Said"})
+_CAP_WORD_BEFORE = re.compile(r'([A-Z][a-zA-Z]+)\s+$')
 
 # ---------------------------------------------------------------------------
 # ND Court Rules
@@ -541,6 +550,10 @@ class NDMatcher(BaseMatcher):
             return
         if _OLD_CONST_BAD_PREFIX.search(text, max(0, start - 30), start):
             return
+        if m.group(0)[:5].lower() == "const":
+            cap = _CAP_WORD_BEFORE.search(text, max(0, start - 25), start)
+            if cap and cap.group(1) not in _BARE_CONST_OK_PREFIX:
+                return
         # (offset, number) for the lead section and any enumeration tail.
         sections = [(m.start(1), m.group(1))]
         for num in re.finditer(r'\d{1,3}', m.group(2)):

@@ -257,6 +257,30 @@ def test_nd_const_old_rejects_federal_and_sister_state():
         assert m.find_all(text) == [], text
 
 
+def test_nd_const_old_rejects_bare_lead_sister_state():
+    m = NDMatcher()
+    # "Montana Constitution, § 2" — the bare-"Constitution" lead form must not
+    # fire when a capitalized (state-name) word precedes it (2026-07-22 corpus
+    # find: State ex rel. Bottomly-era Montana cite parsed as ND § 2).
+    assert m.find_all("See Montana Constitution, § 2, art. 8") == []
+    assert m.find_all("the South Dakota Constitution, § 2") == []
+    # The allowlisted capitalized prefixes still match.
+    for text in ("The Constitution, § 61", "our State Constitution, § 61"):
+        results = m.find_all(text)
+        assert [r.normalized for r in results] == ["N.D. Const. § 61"], text
+
+
+def test_nd_const_bracket_altered_article_form():
+    m = NDMatcher()
+    # Quotation-altered "article [I], section 1 of the North Dakota
+    # constitution" is a MODERN cite; it must not fall through to an
+    # old-numbering § 1 (2026-07-22 corpus find, 2023/2025 opinions).
+    results = m.find_all(
+        "a liberty interest in article [I], section 1 of the North Dakota constitution")
+    assert [r.normalized for r in results] == ["N.D. Const. art. I, § 1"]
+    assert all(r.components.get("numbering") != "1889" for r in results)
+
+
 def test_nd_const_old_rejects_out_of_range():
     m = NDMatcher()
     assert m.find_all("section 218 of the Constitution") == []
