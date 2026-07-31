@@ -1,5 +1,7 @@
 """Tests for North Dakota-specific citation patterns."""
 
+import pytest
+
 from jetcite.models import CitationType
 from jetcite.patterns.states.nd import NDMatcher
 
@@ -427,3 +429,116 @@ def test_local_rule():
     results = m.find_all("Local Rule 100-1")
     assert len(results) == 1
     assert "local" in results[0].components["rule_set"]
+
+
+# ---------------------------------------------------------------------------
+# N.D. Sup. Ct. Admin. Order — and the agency-order decoys it must refuse
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("text,expected", [
+    # the set names itself
+    ("N.D. Sup.Ct. Admin. Order 9 provides, in part:",
+     "N.D. Sup. Ct. Admin. Order 9"),
+    ("timely under N.D.R.App.P. 4(a) and N.D. Sup.Ct. Admin. Order 20.",
+     "N.D. Sup. Ct. Admin. Order 20"),
+    ("See N.D. Sup. Ct. Admin. Order 25 (first adopted March 16, 2020).",
+     "N.D. Sup. Ct. Admin. Order 25"),
+    ("Sup. Ct. Admin. Order 16 governs.", "N.D. Sup. Ct. Admin. Order 16"),
+    # the court owns it
+    ("Consistent with this Court's Administrative Order 25 suspending trials",
+     "N.D. Sup. Ct. Admin. Order 25"),
+    ("Administrative Order No. 1 of this Court, dated October 30, 1974",
+     "N.D. Sup. Ct. Admin. Order 1"),
+])
+def test_nd_admin_order(text, expected):
+    m = NDMatcher()
+    got = [c.normalized for c in m.find_all(text)
+           if "Admin. Order" in c.normalized]
+    assert got == [expected]
+
+
+@pytest.mark.parametrize("text", [
+    # agency orders: hyphen-suffixed docket numbers are never this set
+    "the State Engineer's Administrative Order 10-1 requiring Peterson",
+    "Administrative Order 2-1979 designated Judge A. C. Bakken",
+    # ordinary prose about an agency's order
+    "an administrative order of revocation of driver's license was made",
+    "affirmed an administrative order entered after hearing on July 5, 1973",
+    # bare short form with no cue: left to the opinion's own full cite
+    "trial continuances caused by Administrative Order 25 do not weigh",
+])
+def test_nd_admin_order_refuses_agency_orders(text):
+    m = NDMatcher()
+    assert [c.normalized for c in m.find_all(text)
+            if "Admin. Order" in c.normalized] == []
+
+
+def test_nd_admin_order_distinct_from_admin_rule():
+    m = NDMatcher()
+    got = [c.normalized for c in m.find_all(
+        "N.D. Sup. Ct. Admin. R. 22 and N.D. Sup. Ct. Admin. Order 25")]
+    assert "N.D. Sup. Ct. Admin. R. 22" in got
+    assert "N.D. Sup. Ct. Admin. Order 25" in got
+
+
+# ---------------------------------------------------------------------------
+# N.D.R. Proc. R. — the court writes it with a section sign and a decimal
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("text,expected", [
+    # a decimal here is a SUBSECTION pinpoint, normalized to its section
+    ('Under N.D.R.Proc.R. § 3.1, "Any person interested', "N.D.R. Proc. R. 3"),
+    ("can petition under N.D.R.Proc.R. § 3.1 to request", "N.D.R. Proc. R. 3"),
+    ("N.D.R. Proc. R. 10 does not act as a stay", "N.D.R. Proc. R. 10"),
+])
+def test_nd_proc_r(text, expected):
+    m = NDMatcher()
+    got = [c.normalized for c in m.find_all(text) if "Proc. R." in c.normalized]
+    assert got == [expected]
+
+
+def test_nd_proc_r_bare_set_reference_is_not_a_cite():
+    m = NDMatcher()
+    assert [c.normalized for c in m.find_all(
+        "See generally N.D.R.Proc.R. Judge Schmidt did not err")
+        if "Proc. R." in c.normalized] == []
+
+
+# ---------------------------------------------------------------------------
+# the two sets ND opinions do not cite by number — normalized forms aligned
+# with the rules corpus so a future cite resolves
+# ---------------------------------------------------------------------------
+
+def test_nd_local_ct_pr_normalizes_to_corpus_form():
+    m = NDMatcher()
+    got = [c.normalized for c in m.find_all("N.D.R. Local Ct. Pr. 3")]
+    assert got == ["N.D.R. Local Ct. Pr. 3"]
+
+
+def test_nd_student_practice_roman_becomes_arabic():
+    # headings print roman numerals; the corpus cites arabic
+    m = NDMatcher()
+    got = [c.normalized for c in m.find_all(
+        "Limited Practice of Law by Law Students R. VII")]
+    assert got == ["Ltd. Practice of Law by Law Students R. 7"]
+
+
+def test_nd_student_practice_appearance_line_is_not_a_cite():
+    # all 118 corpus mentions are counsel-appearance lines; the street number
+    # that follows must never be read as a rule number
+    m = NDMatcher()
+    assert [c.normalized for c in m.find_all(
+        "under the Rule on Limited Practice of Law by Law Students, "
+        "124 South Fourth Street, Bismarck")
+        if "Law Students" in c.normalized] == []
+
+
+def test_nd_proc_r_decimal_is_a_subsection_pinpoint():
+    """Proc. R. and Local Ct. Pr. number sections with integers and
+    subsections with decimals, so '§ 3.1' must resolve to section 3 (which
+    the rules corpus carries) with the pinpoint preserved."""
+    m = NDMatcher()
+    cite = [c for c in m.find_all('N.D.R.Proc.R. § 3.1 permits a petition')
+            if "Proc. R." in c.normalized][0]
+    assert cite.normalized == "N.D.R. Proc. R. 3"
+    assert cite.components["pinpoint"] == "3.1"

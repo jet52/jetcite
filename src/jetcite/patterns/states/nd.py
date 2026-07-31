@@ -341,17 +341,52 @@ _SANCTIONS = re.compile(
 # Local Rules
 _LOCAL = re.compile(r'Local[\s.]*Rule[\s.]*(\d{1,4}(?:-\d+)?)', re.IGNORECASE)
 
-# N.D.R. Proc. R.
-_PROC_R = re.compile(
-    r'(?:N[\s.]*D[\s.]*R[\s.]*Proc[\s.]*R[.\s]*(?:Rule\s+)?(\d+)'
-    r'|(?:Rule\s+)?(\d+)[,\s]*N[\s.]*D[\s.]*R[\s.]*Proc[\s.]*R)',
+# N.D. Sup. Ct. Admin. Order — the Supreme Court's administrative orders
+# (Order 25 suspended jury trials during COVID-19), a set distinct from
+# N.D. Sup. Ct. Admin. R.
+#
+# Discrimination matters here: "Administrative Order" alone is ordinary prose
+# for an AGENCY order in ND opinions ("the State Engineer's Administrative
+# Order 10-1", a highway-commissioner licence revocation). Two cues make a
+# reference unambiguous, and nothing else is extracted:
+#   1. the set is named        — "N.D. Sup. Ct. Admin. Order 25"
+#   2. the court owns it       — "this Court's Administrative Order 25",
+#                                "Administrative Order No. 1 of this Court"
+# A hyphen-suffixed number ("10-1", "2-1979") is an agency docket form and is
+# excluded outright. Corpus-verified 2026-07-31: these cues cover every
+# genuine reference; bare "Administrative Order 25" repeats inside an opinion
+# that already gave a full cite are deliberately left to the full cite rather
+# than guessed at.
+_ADMIN_ORDER = re.compile(
+    r'(?:N[\s.]*D[\s.]*)?Sup(?:reme)?[\s.]*Ct?(?:ourt)?[\s.]*'
+    r'Admin(?:istrative)?[\s.]*Order[\s.]*(?:No[\s.]*)?(\d{1,3})(?!\s*-\s*\d)',
     re.IGNORECASE,
 )
 
-# N.D.R. Local Ct. P.R.
+_ADMIN_ORDER_POSSESSIVE = re.compile(
+    r'(?:this\s+Court\'?s?\s+Administrative[\s.]*Order[\s.]*(?:No[\s.]*)?'
+    r'(\d{1,3})(?!\s*-\s*\d)'
+    r'|Administrative[\s.]*Order[\s.]*(?:No[\s.]*)?(\d{1,3})(?!\s*-\s*\d)'
+    r'\s+of\s+this\s+Court)',
+    re.IGNORECASE,
+)
+
+# N.D.R. Proc. R. — the court writes "N.D.R.Proc.R. § 3.1", so the section
+# sign is optional and the number may carry a decimal part.
+_PROC_R = re.compile(
+    r'(?:N[\s.]*D[\s.]*R[\s.]*Proc[\s.]*R[.\s]*(?:§\s*)?(?:Rule\s+)?'
+    r'(\d+(?:\.\d+)?)'
+    r'|(?:§\s*)?(?:Rule\s+)?(\d+(?:\.\d+)?)[,\s]*'
+    r'N[\s.]*D[\s.]*R[\s.]*Proc[\s.]*R)',
+    re.IGNORECASE,
+)
+
+# N.D.R. Local Ct. Pr.
 _LOCAL_CT = re.compile(
-    r'(?:N[\s.]*D[\s.]*R[\s.]*Local[\s.]*Ct[\s.]*P[\s.]*R[.\s]*(?:Rule\s+)?(\d+)'
-    r'|(?:Rule\s+)?(\d+)[,\s]*N[\s.]*D[\s.]*R[\s.]*Local[\s.]*Ct[\s.]*P[\s.]*R)',
+    r'(?:N[\s.]*D[\s.]*R[\s.]*Local[\s.]*Ct[\s.]*P[\s.]*R?[.\s]*(?:§\s*)?'
+    r'(?:Rule\s+)?(\d+(?:\.\d+)?)'
+    r'|(?:§\s*)?(?:Rule\s+)?(\d+(?:\.\d+)?)[,\s]*'
+    r'N[\s.]*D[\s.]*R[\s.]*Local[\s.]*Ct[\s.]*P[\s.]*R?)',
     re.IGNORECASE,
 )
 
@@ -373,13 +408,36 @@ _JUD_COMM = re.compile(
     re.IGNORECASE,
 )
 
-# Student Practice Rules (Roman numeral)
+# Ltd. Practice of Law by Law Students R. — the rules print their numbers as
+# roman numerals in the headings but the corpus cites them in arabic
+# ("Ltd. Practice of Law by Law Students R. 3"), so a roman capture is
+# converted. Corpus-verified 2026-07-31: all 118 mentions of this set in ND
+# opinions are counsel-appearance lines ("appearing under the Rule on the
+# Limited Practice of Law by Law Students"), never a numbered citation — the
+# pattern exists so a future numbered cite normalizes correctly, and the
+# unnumbered appearance lines correctly yield nothing.
 _STUDENT = re.compile(
     r'(?:Limited\s+Practice\s+of\s+Law\s+by\s+Law\s+Students|'
     r'N[\s.]*D[\s.]*Student[\s.]*Practice[\s.]*R(?:ule)?)'
-    r'[.\s]*(?:§\s*)?([IVX]+)',
+    r'[.\s]*R?[.\s]*(?:§\s*)?([IVX]+|\d{1,2})(?![\d\w])',
     re.IGNORECASE,
 )
+
+_ROMAN_VALUES = {"I": 1, "V": 5, "X": 10}
+
+
+def _roman_to_arabic(s: str) -> str:
+    """'VII' -> '7'. Returns the input unchanged if it is already arabic."""
+    if s.isdigit():
+        return s
+    total = prev = 0
+    for ch in reversed(s.upper()):
+        v = _ROMAN_VALUES.get(ch)
+        if v is None:
+            return s
+        total = total - v if v < prev else total + v
+        prev = max(prev, v)
+    return str(total)
 
 _PROC_MAP = {
     "civil": "ndrcivp", "civ": "ndrcivp",
@@ -751,19 +809,36 @@ class NDMatcher(BaseMatcher):
                 position=m.start(),
             ))
 
-        # N.D.R. Proc. R.
-        for m in _PROC_R.finditer(text):
-            rule = m.group(1) or m.group(2)
-            if rule:
+        # N.D. Sup. Ct. Admin. Order (named set, then the possessive cue)
+        seen_admin_order: set[int] = set()
+        for pattern in (_ADMIN_ORDER, _ADMIN_ORDER_POSSESSIVE):
+            for m in pattern.finditer(text):
+                order = next((g for g in m.groups() if g), None)
+                if not order or m.start() in seen_admin_order:
+                    continue
+                seen_admin_order.add(m.start())
                 results.append(self._rule_cite(
-                    m, "ndrprocr", "N.D.R. Proc. R.", [rule]))
+                    m, "ndsupctadminorder", "N.D. Sup. Ct. Admin. Order",
+                    [order]))
 
-        # N.D.R. Local Ct. P.R.
-        for m in _LOCAL_CT.finditer(text):
-            rule = m.group(1) or m.group(2)
-            if rule:
-                results.append(self._rule_cite(
-                    m, "ndrlocalctpr", "N.D.R. Local Ct. P.R.", [rule]))
+        # N.D.R. Proc. R. and N.D.R. Local Ct. Pr. — unlike the other rule
+        # sets, these number their SECTIONS with integers and their
+        # subsections with decimals ("Section 3" contains 3.1, 3.2, 3.3), so
+        # "N.D.R.Proc.R. § 3.1" is a pinpoint into section 3, not a rule 3.1.
+        # Normalizing to the section is what makes the cite resolve; the
+        # pinpoint is preserved in components.
+        for pattern, rule_set, display in (
+                (_PROC_R, "ndrprocr", "N.D.R. Proc. R."),
+                (_LOCAL_CT, "ndrlocalctpr", "N.D.R. Local Ct. Pr.")):
+            for m in pattern.finditer(text):
+                rule = m.group(1) or m.group(2)
+                if not rule:
+                    continue
+                section, _, sub = rule.partition(".")
+                cite = self._rule_cite(m, rule_set, display, [section])
+                if sub:
+                    cite.components["pinpoint"] = rule
+                results.append(cite)
 
         # Judicial Conduct Commission (decimal)
         for m in _JUD_COMM_DEC.finditer(text):
@@ -779,12 +854,12 @@ class NDMatcher(BaseMatcher):
                 results.append(self._rule_cite(
                     m, "rjudconductcomm", "N.D.R. Jud. Conduct Commission", [rule]))
 
-        # Student Practice Rules
+        # Ltd. Practice of Law by Law Students R.
         for m in _STUDENT.finditer(text):
-            roman = m.group(1).upper()
             results.append(self._rule_cite(
-                m, "rltdpracticeoflawbylawstudents",
-                "N.D. Student Practice R.", [roman]))
+                m, "ltdpracticeoflawbylawstudentsr",
+                "Ltd. Practice of Law by Law Students R.",
+                [_roman_to_arabic(m.group(1))]))
 
     def _rule_cite(self, m, rule_set: str, display: str,
                    parts: list[str]) -> Citation:
