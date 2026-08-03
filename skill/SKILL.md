@@ -8,7 +8,9 @@ description: Parse American legal citations from text and generate URLs to offic
 
 Parse American legal citations from text and generate URLs to official government sources.
 
-**Update check:** On first use in a session, run `python3 ~/.claude/skills/jetcite-skill/check_update.py` silently. If it prints output, include it as a note to the user.
+**Update check:** On first use in a session, run `python3 "${CLAUDE_SKILL_DIR}/check_update.py"` silently. If it prints output, include it as a note to the user.
+
+`${CLAUDE_SKILL_DIR}` here and below is replaced by the harness with this skill's absolute directory (standalone install, plugin cache, or Cowork mount alike) before you read this file — the paths you see are literal. Keep them double-quoted in shell commands.
 
 ## Installation
 
@@ -19,7 +21,7 @@ Extract the `jetcite-skill` zip to `~/.claude/skills/jetcite-skill/`.
 ### Look up a single citation
 
 ```bash
-python ~/.claude/skills/jetcite-skill/jetcite_tool.py lookup "585 N.W.2d 123"
+python "${CLAUDE_SKILL_DIR}/jetcite_tool.py" lookup "585 N.W.2d 123"
 ```
 
 Returns the primary URL for the citation. Add `--json` for full structured output including citation type, jurisdiction, normalized form, and all available source URLs.
@@ -27,7 +29,7 @@ Returns the primary URL for the citation. Add `--json` for full structured outpu
 ### Scan a document for all citations
 
 ```bash
-python ~/.claude/skills/jetcite-skill/jetcite_tool.py scan /path/to/document.md
+python "${CLAUDE_SKILL_DIR}/jetcite_tool.py" scan /path/to/document.md
 ```
 
 Returns all citations found with their URLs (tab-separated). Add `--json` for structured output.
@@ -35,14 +37,14 @@ Returns all citations found with their URLs (tab-separated). Add `--json` for st
 To scan text from stdin:
 
 ```bash
-echo "See 2024 ND 156 and N.D.C.C. § 1-02-13." | python ~/.claude/skills/jetcite-skill/jetcite_tool.py scan -
+echo "See 2024 ND 156 and N.D.C.C. § 1-02-13." | python "${CLAUDE_SKILL_DIR}/jetcite_tool.py" scan -
 ```
 
 ### Use as a Python library
 
 ```python
 import sys
-sys.path.insert(0, str(Path.home() / ".claude/skills/jetcite-skill/src"))
+sys.path.insert(0, "${CLAUDE_SKILL_DIR}/src")  # rendered as this skill's absolute path
 from jetcite import lookup, scan_text
 
 cite = lookup("2024 ND 156")
