@@ -263,6 +263,11 @@ Each `Citation` object has:
 | `parallel_cites` | `list[str]` | Normalized forms of parallel citations (batch mode) |
 | `position` | `int` | Character offset in source text |
 | `antecedent_name` | `str \| None` | Best-effort case name governing the cite, e.g. `"Boedecker v. St. Alexius Hospital"` (heuristic; `None` when no name is found — see note below) |
+| `improper_parallel_pincite` | `bool` | ND style defect: this reporter cite is the parallel half of a ND public-domain pair *and* carries a page pin cite (batch mode; see note below) |
+
+> **`improper_parallel_pincite`** implements a rule from the North Dakota Supreme Court's supplement to the Redbook (`reference/nd-citation-style.md`): a full public-domain cite gives the North Western Reporter's **first page only**, because the ¶ is the pinpoint and appears in both sources. So `1997 ND 231, ¶ 10, 571 N.W.2d 358, 360` is improper and `…, 571 N.W.2d 358` is correct. The flag is deliberately scoped to ND pairs — other states' medium-neutral conventions are not jetcite's to assert — and is never raised for a pre-1997 ND cite (`512 N.W.2d 470, 477 (N.D. 1994)`), where the reporter pin cite *is* the correct form.
+>
+> **North Dakota Court of Appeals** cites normalize as `YYYY ND App N`, carry `components["court"] == "ND App"`, resolve through `citType=NDApp` on ndcourts.gov, and cache under `opin/NDApp/`. They share a year/number space with Supreme Court cites — `2005 ND 7` and `2005 ND App 7` are different cases — so never drop the `App` token.
 
 > **`antecedent_name` is a heuristic**, unlike the deterministic fields above. It is recovered by looking back from the citation into the surrounding prose for a `X v. Y` / `In re X` caption, so the left boundary is inherently fuzzy. Treat it as a hint (useful for disambiguating a reporter page shared by more than one case), tolerate `None`, and prefer full `v.` captions over short-form matches. The standalone helper `extract_antecedent_name(text, position)` is also exported.
 
