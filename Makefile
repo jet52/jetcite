@@ -1,6 +1,9 @@
 VERSION := $(shell python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
 SKILL_DIR := skill
-DIST_NAME := jetcite-skill-v$(VERSION)
+# No "v" before the version: this must match what .github/workflows/release.yml
+# publishes, which is what every released asset has been named since v2.5.4.
+DIST_NAME := jetcite-skill-$(VERSION)
+STAGE := /tmp/jetcite-skill-build
 
 PYTHON := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
 
@@ -42,17 +45,29 @@ deploy-skill: $(SKILL_DIR)/pyproject.toml
 test: version-check
 	$(PYTHON) -m pytest tests/ -q
 
-# Package skill for distribution. version-check first so a drifted version can
-# never be shipped — the zip name comes from pyproject.toml, but consumers read
-# _version.py, plugin.json, and SKILL.md.
+# Package skill for distribution. release.yml calls this target, so what you
+# build locally is byte-for-byte what gets published — the two used to be
+# separate recipes and had silently diverged in three ways (zip name, README,
+# and archive layout).
+#
+# The archive is FLAT: entries sit at the root, with no top-level directory.
+# SKILL.md tells the user to "extract the jetcite-skill zip to
+# ~/.claude/skills/jetcite-skill/", so a wrapper directory would install one
+# level too deep and the skill would not load. Do not "tidy" this into a
+# versioned top-level folder.
+#
+# version-check runs first so a drifted version can never be shipped — the zip
+# name comes from pyproject.toml, but consumers read _version.py, plugin.json,
+# and SKILL.md.
 package: version-check $(SKILL_DIR)/pyproject.toml
-	rm -rf /tmp/$(DIST_NAME)
-	mkdir -p /tmp/$(DIST_NAME)/src
-	cp -r $(SKILL_DIR)/SKILL.md $(SKILL_DIR)/jetcite_tool.py $(SKILL_DIR)/check_update.py $(SKILL_DIR)/pyproject.toml /tmp/$(DIST_NAME)/
-	cp -r src/jetcite /tmp/$(DIST_NAME)/src/jetcite
-	find /tmp/$(DIST_NAME) -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	cd /tmp && zip -r $(CURDIR)/$(DIST_NAME).zip $(DIST_NAME)/
-	rm -rf /tmp/$(DIST_NAME)
+	rm -rf $(STAGE)
+	mkdir -p $(STAGE)/src
+	cp $(SKILL_DIR)/SKILL.md $(SKILL_DIR)/jetcite_tool.py $(SKILL_DIR)/check_update.py $(SKILL_DIR)/pyproject.toml README.md $(STAGE)/
+	cp -r src/jetcite $(STAGE)/src/jetcite
+	find $(STAGE) -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	rm -f $(CURDIR)/$(DIST_NAME).zip
+	cd $(STAGE) && zip -rq $(CURDIR)/$(DIST_NAME).zip .
+	rm -rf $(STAGE)
 	@echo "Built: $(DIST_NAME).zip"
 
 clean:

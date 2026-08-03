@@ -18,15 +18,26 @@ jobs:
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
 
-      - name: Build skill zip
+      # The tag is the one version string `make version-check` cannot see.
+      # Without this, tagging v2.9.0 on a tree that still says 2.8.0 publishes
+      # an asset named for the tag whose contents report the older version.
+      - name: Check tag matches pyproject.toml
         run: |
-          mkdir jetcite-skill
-          cp skill/jetcite_tool.py skill/check_update.py skill/SKILL.md jetcite-skill/
-          cp README.md jetcite-skill/
-          printf '[project]\nname = "jetcite-skill"\nversion = "%s"\n' "${{ steps.version.outputs.version }}" > jetcite-skill/pyproject.toml
-          mkdir -p jetcite-skill/src
-          cp -r src/jetcite jetcite-skill/src/jetcite
-          cd jetcite-skill && zip -r ../jetcite-skill-${{ steps.version.outputs.version }}.zip .
+          FILE_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          if [ "${{ steps.version.outputs.version }}" != "$FILE_VERSION" ]; then
+            echo "TAG/VERSION MISMATCH: tag v${{ steps.version.outputs.version }} vs pyproject.toml $FILE_VERSION"
+            exit 1
+          fi
+          echo "tag v${{ steps.version.outputs.version }} matches pyproject.toml."
+
+      # Build via the Makefile rather than a parallel recipe here. These were
+      # two separate implementations and had drifted in three ways: the zip
+      # name (a stray "v"), whether README.md was included, and whether the
+      # archive had a top-level directory. `make package` also runs
+      # version-check, so a release with a drifted _version.py, plugin.json,
+      # or SKILL.md now fails here instead of shipping.
+      - name: Build skill zip
+        run: make package
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
