@@ -207,6 +207,7 @@ vendored copy):
 | `www.ecfr.gov` | C.F.R. section links |
 | `ndlegis.gov` | NDCC, NDAC |
 | `ndconst.org` | ND Constitution |
+| `constitution.congress.gov` | U.S. Constitution (Constitution Annotated, Library of Congress — official) |
 | `constitutioncenter.org` | U.S. Constitution |
 
 This list is enforced by `tests/test_egress.py`: if a future source module adds
@@ -353,6 +354,7 @@ HTML and PDF content is automatically converted to markdown. Original downloads 
 | www.legis.iowa.gov | Section/rule/chapter PDFs | Iowa Code, Iowa Admin. Code, Iowa Court Rules, Iowa Constitution |
 | govinfo.gov | USC section links | U.S. Code |
 | ecfr.gov | Current CFR section links | C.F.R. |
+| constitution.congress.gov | Article and amendment pages (official, link-out) | U.S. Constitution |
 | constitutioncenter.org | Article and amendment pages | U.S. Constitution |
 | law.cornell.edu (LII) | Federal rule pages | FRCP, FRE, etc. |
 | supreme.justia.com | Opinion pages | U.S. Reports |

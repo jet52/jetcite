@@ -775,3 +775,65 @@ class TestBareIdPinpointInheritance:
         entry = to_legacy_dict(pin, tmp_path)
         assert entry["pin_paragraph"] == "6"
         assert entry["pinpoint_inherited"] is True
+
+
+class TestQuotedMatterAntecedents:
+    """Citations inside quoted matter cannot capture a following Id."""
+
+    # A recurring drafting pattern: an id. after a quotation that itself
+    # contains a citable reference must chain past the quote to the case.
+    # (The quoted sentence is from Snyder's Drug Stores, 219 N.W.2d 140,
+    # 146 (N.D. 1974) — a published opinion.)
+    TEXT = (
+        "Snyder’s Drug Stores v. N.D. State Bd. of Pharmacy, "
+        "219 N.W.2d 140 (N.D. 1974). "
+        "The court said: “For the purposes of this case, we consider "
+        "Section 20 of the North Dakota Constitution to be similar,” "
+        "id. at 146, and later “we conclude there is no compelling reason "
+        "to do so,” id. at 150. A further point. Id.\n"
+    )
+
+    def _pins(self, text):
+        from jetcite.scanner import scan_text
+        return [c for c in scan_text(text, resolve=False,
+                                     include_pin_cites=True)
+                if c.is_pin_cite]
+
+    def test_id_skips_citation_inside_quote(self):
+        pins = self._pins(self.TEXT)
+        at146 = next(p for p in pins if "146" in p.raw_text)
+        assert at146.parent_normalized == "219 N.W.2d 140"
+
+    def test_chained_ids_follow_the_corrected_parent(self):
+        pins = self._pins(self.TEXT)
+        assert [p.parent_normalized for p in pins] == ["219 N.W.2d 140"] * 3
+
+    def test_quote_still_cited_as_its_own_entry(self):
+        from jetcite.scanner import scan_text
+        cites = scan_text(self.TEXT, resolve=False)
+        assert any("N.D. Const." in c.normalized or "Section 20" in c.raw_text
+                   for c in cites)
+
+    def test_page_pin_skips_non_case_antecedent_outside_quotes(self):
+        # No quotation marks at all (the unmarked-block-quote scenario):
+        # the type guard alone must route a page pin past the constitution.
+        text = ("State v. Doe, 100 N.W.2d 100 (N.D. 1960). Under "
+                "Section 20 of the North Dakota Constitution the rule "
+                "differs. Id. at 105.\n")
+        pins = self._pins(text)
+        assert pins[0].parent_normalized == "100 N.W.2d 100"
+
+    def test_bare_id_still_takes_nearest_unquoted_antecedent(self):
+        # A bare Id. (no page pin) after an unquoted constitution cite is
+        # legitimate Bluebook usage and must keep resolving to it.
+        text = ("Under Section 20 of the North Dakota Constitution the "
+                "rule differs. Id.\n")
+        pins = self._pins(text)
+        assert pins and pins[0].parent_normalized is not None
+        assert "Const" in pins[0].parent_normalized
+
+    def test_unclosed_quote_extends_to_line_end(self):
+        from jetcite.scanner import _quoted_spans
+        text = "Before “an open quote with no close\nnext paragraph.\n"
+        spans = _quoted_spans(text)
+        assert spans == [(7, text.index("\n"))]

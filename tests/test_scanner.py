@@ -98,3 +98,73 @@ def test_parallel_old_nd_reporter():
     nw_cite = next(r for r in results if r.normalized == "195 N.W. 500")
     assert nw_cite.normalized in nd_cite.parallel_cites
     assert nd_cite.normalized in nw_cite.parallel_cites
+
+
+class TestTrailingFullCitePins:
+    """Full-cite trailing page pins: "259 N.W.2d 621, 627 (N.D. 1977)"."""
+
+    def test_reporter_cite_captures_trailing_pin(self):
+        from jetcite.scanner import scan_text
+        cites = scan_text(
+            "State ex rel. Olson v. Maxwell, 259 N.W.2d 621, 627 (N.D. 1977).",
+            resolve=False)
+        c = next(x for x in cites if x.normalized == "259 N.W.2d 621")
+        assert c.pinpoint == "at 627"
+
+    def test_page_range_pin(self):
+        from jetcite.scanner import scan_text
+        cites = scan_text("Johnson v. Hassett, 217 N.W.2d 771, 775-76 (N.D. 1974).",
+                          resolve=False)
+        c = next(x for x in cites if x.normalized == "217 N.W.2d 771")
+        assert c.pinpoint == "at 775-76"
+
+    def test_following_cite_volume_is_not_a_pin(self):
+        from jetcite.scanner import scan_text
+        cites = scan_text("See 259 N.W.2d 621, 627 N.W.2d 100.", resolve=False)
+        c = next(x for x in cites if x.normalized == "259 N.W.2d 621")
+        assert c.pinpoint is None
+
+    def test_scotus_parallel_pair_each_get_their_pin(self):
+        from jetcite.scanner import scan_text
+        cites = scan_text("Ng Fung Ho v. White, 259 U.S. 276, 284, "
+                          "42 S. Ct. 492, 495 (1922).", resolve=False)
+        by = {c.normalized: c for c in cites}
+        assert by["259 U.S. 276"].pinpoint == "at 284"
+        assert by["42 S. Ct. 492"].pinpoint == "at 495"
+
+    def test_neutral_cite_paragraph_pin_untouched(self):
+        from jetcite.scanner import scan_text
+        cites = scan_text("Olson v. Olson, 2024 ND 156, ¶ 7, 10 N.W.3d 500.",
+                          resolve=False)
+        c = next(x for x in cites if x.normalized == "2024 ND 156")
+        assert c.pinpoint == "¶ 7"
+
+    def test_repeat_occurrence_gets_its_own_pin(self):
+        from jetcite.scanner import scan_text
+        cites = scan_text(
+            "Maxwell, 259 N.W.2d 621, 627 (N.D. 1977). Text. "
+            "Later, Maxwell, 259 N.W.2d 621, 630.",
+            resolve=False, include_occurrences=True)
+        pins = [c.pinpoint for c in cites if c.normalized == "259 N.W.2d 621"]
+        assert pins == ["at 627", "at 630"]
+
+    def test_footnote_pin(self):
+        from jetcite.scanner import scan_text
+        cites = scan_text("City of Mandan v. Fern, 501 N.W.2d 739, 744 n.3 "
+                          "(N.D. 1993).", resolve=False)
+        c = next(x for x in cites if x.normalized == "501 N.W.2d 739")
+        assert c.pinpoint == "at 744 n.3"
+
+    def test_multi_footnote_pin(self):
+        from jetcite.scanner import scan_text
+        cites = scan_text("Fern, 501 N.W.2d 739, 744 nn.3-4 (N.D. 1993).",
+                          resolve=False)
+        c = next(x for x in cites if x.normalized == "501 N.W.2d 739")
+        assert c.pinpoint == "at 744 nn.3-4"
+
+    def test_bare_n_word_is_not_a_footnote(self):
+        from jetcite.scanner import scan_text
+        cites = scan_text("See 259 N.W.2d 621, 627 not the page.",
+                          resolve=False)
+        c = next(x for x in cites if x.normalized == "259 N.W.2d 621")
+        assert c.pinpoint is None
