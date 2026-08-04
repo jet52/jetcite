@@ -22,7 +22,11 @@ PYTHON := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo pytho
 # 2.7.4 and silently re-locking uv.lock to the stale value; plugin.json had
 # meanwhile drifted to 2.5.3 and SKILL.md to 1.4.1. This makes that class of
 # failure loud instead of silent, as it already is in jetmemo and jetredline.
-version-check:
+# Depends on the generated skill/pyproject.toml (gitignored) so a fresh
+# clone creates it and a version bump auto-regenerates it — the sed below
+# would otherwise fail on the missing file. The uv.lock check has no such
+# self-heal: a stale lock fails the gate until 'uv lock' is run.
+version-check: $(SKILL_DIR)/pyproject.toml
 	@V=$(VERSION) && \
 	LV=$$(sed -n 's/^__version__[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' src/jetcite/_version.py | head -1) && \
 	PV=$$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' .claude-plugin/plugin.json | head -1) && \
