@@ -30,7 +30,12 @@ version-check:
 	if [ "$$V" != "$$LV" ] || [ "$$V" != "$$PV" ] || [ "$$V" != "$$SV" ]; then \
 	  echo "VERSION DRIFT: pyproject.toml=$$V _version.py=$$LV plugin.json=$$PV SKILL.md=$$SV"; exit 1; \
 	fi; \
-	echo "version: $$V consistent across pyproject.toml, _version.py, plugin.json, SKILL.md."
+	KV=$$(sed -n 's/^version = "\([^"]*\)".*/\1/p' skill/pyproject.toml | head -1) && \
+	UV=$$(awk '/^name = "jetcite"$$/{getline; sub(/^version = "/,""); sub(/".*/,""); print; exit}' uv.lock) && \
+	if [ "$$V" != "$$KV" ] || [ "$$V" != "$$UV" ]; then \
+	  echo "VERSION DRIFT (generated artifacts): skill/pyproject.toml=$$KV uv.lock=$$UV — run 'make skill/pyproject.toml' and 'uv lock'"; exit 1; \
+	fi; \
+	echo "version: $$V consistent across pyproject.toml, _version.py, plugin.json, SKILL.md, skill/pyproject.toml, uv.lock."
 
 # Generate the lightweight pyproject.toml that check_update.py reads
 $(SKILL_DIR)/pyproject.toml: pyproject.toml
