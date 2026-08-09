@@ -49,6 +49,52 @@ def test_archaic_reporter_names(text, want):
     assert want in norms(text)
 
 
+@pytest.mark.parametrize("text,want", [
+    ("16 Pac. 931", "16 P. 931"),
+    ("1 Sup. Ct. 389", "1 S. Ct. 389"),
+    ("15 Atl. 166", "15 A. 166"),
+    ("22 At. 893", "22 A. 893"),
+    ("43 Fed. 333", "43 F. 333"),
+    ("7 South. 51", "7 So. 51"),
+])
+def test_the_bare_forms_without_rep(text, want):
+    """2.10.0's bug: "Rep." shipped MANDATORY on these names, on the claim that
+    a bare "Pac." was prose. The corpus carries 3,585 bare "Pac.", 1,677 bare
+    "Sup. Ct.", 1,005 bare "Atl.", 855 bare "Fed.", 454 bare "South."."""
+    assert want in norms(text)
+
+
+@pytest.mark.parametrize("text", [
+    "5 Fed. Cas. 563",                      # Federal Cases, a different reporter
+    "Southern Pac. Ry. Co. v. Yeagin",      # a party name, no volume
+    "rule 9, Sup. Ct. Rules (74 N. W. vi)",  # a rule set, not a page
+])
+def test_the_digit_on_both_sides_is_what_keeps_the_bare_forms_safe(text):
+    """Dropping the mandatory "Rep." is only safe because a PAGE NUMBER must
+    follow. Each of these puts a reporter name or a word there instead."""
+    assert norms(text) == []
+
+
+def test_bare_sc_stays_south_carolina():
+    """The asymmetry: "Rep." is optional on "Sup. Ct." but mandatory on "S. C.",
+    because a bare "S. C." is the state. Without this, every South Carolina
+    cite would silently re-point at the U.S. Supreme Court."""
+    got = norms("10 S.C. 873")
+    assert "10 S.C. 873" in got
+    assert "10 S. Ct. 873" not in got
+
+
+@pytest.mark.parametrize("text,want", [
+    ("1 N.W.Rep. 691", "1 N.W. 691"),
+    ("17 N.E.Rep. 147", "17 N.E. 147"),
+    ("5 S.E.Rep. 383", "5 S.E. 383"),
+])
+def test_unspaced_rep(text, want):
+    """The print sometimes closes the gap: "1 N.W.Rep. 691". The optional group
+    sits before the mandatory whitespace so both spacings are reached."""
+    assert want in norms(text)
+
+
 def test_sc_rep_is_the_supreme_court_reporter_not_south_carolina():
     """The trap. `S.C.` is a state reporter in regional.py, and "10 S. C. Rep.
     873" is 10 S. Ct. 873 -- resolving it to South Carolina would point the
