@@ -9,17 +9,26 @@ from jetcite.sources.courtlistener import courtlistener_url
 from jetcite.sources.justia import us_reports_url
 from jetcite.sources.usreports import us_reports_official_pdf
 
+# The 1880s-1900s house style suffixed reporter names with "Rep." -- "112 U. S.
+# Rep. 377", "82 Fed. Rep. 277", "17 Sup. Ct. Rep. 748".  The archaic forms are
+# folded into the patterns below rather than given their own matcher so they
+# inherit the same source construction as their modern spellings (U.S. Reports
+# in particular must still reach Justia and the official-print PDF).
+_REP = r'(?:Rep\.\s*)?'
+
 # U.S. Reports: 505 U.S. 377 (also West's spaced "260 U. S. 22")
-_US_REPORTS = re.compile(r'(\d+)\s+U\.\s?S\.\s+(\d+)')
+_US_REPORTS = re.compile(r'(\d+)\s+U\.\s?S\.\s+' + _REP + r'(\d+)')
 
 # Federal Reporter, modern series (mandatory): 491 F.3d 355, 731 F.2d 909, 12 F.4th 100
 _FEDERAL = re.compile(r'(\d+)\s+F\.\s?(2d|3d|4th)\s+(\d+)')
 
-# Federal Reporter, first series (1880-1924): 200 F. 100
-# Negative lookahead refuses "F. 3d", "F. Supp.", "F. App'x" so the engine
-# can't backtrack into the modern-series suffix and produce a truncated page.
+# Federal Reporter, first series (1880-1924): 200 F. 100, archaic "82 Fed. Rep.
+# 277".  Negative lookahead refuses "F. 3d", "F. Supp.", "F. App'x" so the
+# engine can't backtrack into the modern-series suffix and produce a truncated
+# page.  "Fed. Rep." needs its own branch because `F\.` cannot reach the "F" of
+# "Fed." -- and it requires the "Rep.", since a bare "Fed." is prose here.
 _FEDERAL_FIRST = re.compile(
-    r"(\d+)\s+F\.(?!\s?(?:\d+(?:d|th)|Supp\.|App[’']x))\s+(\d+)"
+    r"(\d+)\s+(?:F\.(?!\s?(?:\d+(?:d|th)|Supp\.|App[’']x))\s+|Fed\.\s*Rep\.\s*)(\d+)"
 )
 
 
@@ -29,8 +38,13 @@ def _normalize_reporter(base: str, edition: str | None) -> str:
         return f"{base}{edition}"
     return base
 
-# S. Ct.: 140 S. Ct. 1731
-_S_CT = re.compile(r'(\d+)\s+S\.\s?Ct\.\s+(\d+)')
+# S. Ct.: 140 S. Ct. 1731, archaic "17 Sup. Ct. Rep. 748" / "10 S. C. Rep. 873".
+# "S. C. Rep." is the Supreme Court Reporter, NOT South Carolina: the state
+# pattern in regional.py matches the unspaced "S.C." and so cannot reach the
+# spaced form, but the collision is one edit away and is why this branch is
+# spelled out here rather than left to look like a state cite.
+_S_CT = re.compile(
+    r'(\d+)\s+(?:S\.\s?Ct\.|Sup\.\s*Ct\.\s*Rep\.|S\.\s?C\.\s*Rep\.)\s+(\d+)')
 
 # F. Supp. 2d, F. Supp. 3d (mandatory series)
 _F_SUPP = re.compile(r'(\d+)\s+F\.\s?Supp\.\s?(2d|3d)\s+(\d+)')

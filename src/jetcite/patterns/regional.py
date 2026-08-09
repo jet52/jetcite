@@ -35,13 +35,31 @@ _add(r'(\d+)\s+P\.([23]d)\s+(\d+)', "P.{ed}", True)
 
 # First series (no edition group)
 # Negative lookahead prevents matching "300 So. 2" when the actual text is "300 So. 2d 100"
-_add(r'(\d+)\s+N\.\s?W\.\s+(\d+)(?!d\b)', "N.W.", False)
-_add(r'(\d+)\s+N\.\s?E\.\s+(\d+)(?!d\b)', "N.E.", False)
-_add(r'(\d+)\s+A\.\s+(\d+)(?!d\b)', "A.", False)
-_add(r'(\d+)\s+P\.\s+(\d+)(?!d\b)', "P.", False)
-_add(r'(\d+)\s+S\.\s?E\.\s+(\d+)(?!d\b)', "S.E.", False)
-_add(r'(\d+)\s+So\.\s+(\d+)(?!d\b)', "So.", False)
-_add(r'(\d+)\s+S\.\s?W\.\s+(\d+)(?!d\b)', "S.W.", False)
+#
+# The optional "Rep." is the 1880s-1900s house style: the regional reporters
+# were cited "62 N. W. Rep. 594" before the suffix was dropped, and the ND
+# corpus carries ~2,950 such sites that matched nothing at all before jetcite
+# 2.10.  It belongs ONLY to the first series -- N.W.2d postdates the convention
+# by forty years -- so it is never added to the series-suffixed patterns above,
+# where it would buy nothing and hand the engine one more way to backtrack.
+_REP = r'(?:Rep\.\s*)?'
+_add(r'(\d+)\s+N\.\s?W\.\s+' + _REP + r'(\d+)(?!d\b)', "N.W.", False)
+_add(r'(\d+)\s+N\.\s?E\.\s+' + _REP + r'(\d+)(?!d\b)', "N.E.", False)
+_add(r'(\d+)\s+A\.\s+' + _REP + r'(\d+)(?!d\b)', "A.", False)
+_add(r'(\d+)\s+P\.\s+' + _REP + r'(\d+)(?!d\b)', "P.", False)
+_add(r'(\d+)\s+S\.\s?E\.\s+' + _REP + r'(\d+)(?!d\b)', "S.E.", False)
+_add(r'(\d+)\s+So\.\s+' + _REP + r'(\d+)(?!d\b)', "So.", False)
+_add(r'(\d+)\s+S\.\s?W\.\s+' + _REP + r'(\d+)(?!d\b)', "S.W.", False)
+
+# Archaic reporter NAMES the modern abbreviation no longer resembles: the
+# patterns above cannot reach these because `P\.` does not match the "P" of
+# "Pac.", nor `A\.` the "A" of "Atl.".  Here the "Rep." is MANDATORY -- a bare
+# "Pac." or "At." in this corpus is prose or a party name, not a citation.
+# ("Am. Rep." and "Am. St. Rep." are NOT this class: those reporters are still
+#  named with the "Rep.", and they are out of scope -- see PLAN.md.)
+_add(r'(\d+)\s+Pac\.\s*Rep\.\s*(\d+)', "P.", False)
+_add(r'(\d+)\s+Atl?\.\s*Rep\.\s*(\d+)', "A.", False)
+_add(r'(\d+)\s+South\.\s*Rep\.\s*(\d+)', "So.", False)
 
 # State-specific reporters (modern series only — first series for these
 # reporters is rare in ND practice and not currently supported).
@@ -59,7 +77,7 @@ _add(r'(\d+)\s+Wash\.\s?App\.\s?(2d)\s+(\d+)', "Wash. App. {ed}", True)
 # Use a negative lookahead to avoid matching "N.D.C." (NDCC) or "N.D.A." (NDAC)
 # ("N. D." spaced form per West house style; the lookahead still blocks the
 # spaced "N. D. C. C." statute form because the page must be a digit run)
-_add(r'(\d{1,3})\s+N\.\s?D\.\s+(?!C|A)(\d+)', "N.D.", False)
+_add(r'(\d{1,3})\s+N\.\s?D\.\s+(?!C|A)' + _REP + r'(\d+)', "N.D.", False)
 
 # Malformed NW2d fallback (case-insensitive)
 _add(r'(\d+)\s+(?:NW\.?\s?2d|N\.W2d)\s+(\d+)', "N.W.2d", False)
