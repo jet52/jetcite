@@ -1,6 +1,6 @@
 {
   "name": "jetcite",
-  "version": "2.9.0",
+  "version": "2.10.1",
   "description": "Parse American legal citations from text and generate links to official government sources.",
   "author": { "name": "JET" },
   "homepage": "https://github.com/jet52/jetcite",
