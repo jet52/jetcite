@@ -1,5 +1,7 @@
 """Tests for antecedent case-name extraction."""
 
+import pytest
+
 from jetcite.casename import extract_antecedent_name
 from jetcite.scanner import scan_text
 
@@ -127,3 +129,61 @@ def test_to_dict_includes_name_when_present():
     text = "See State v. Hagensen, 498 N.W.2d 615."
     c = next(c for c in scan_text(text, resolve=False) if c.normalized == "498 N.W.2d 615")
     assert c.to_dict()["antecedent_name"] == "State v. Hagensen"
+
+
+# ---------------------------------------------------------------------------
+# Commas inside party names
+#
+# A party name may legitimately contain a comma before a corporate or
+# generational suffix. The name pattern joined words on whitespace alone, so
+# any such comma truncated the match: "Williamson v. Lee Optical of Okla.,
+# Inc." came back as "Inc.", and a sidebar grouping cites by name showed a
+# heading reading only "Inc."
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("text, expected", [
+    ("The rule receded. Williamson v. Lee Optical of Okla., Inc., 348 U.S. 483, 491 (1955).",
+     "Williamson v. Lee Optical of Okla., Inc."),
+    ("See Harrison v. PPG Indus., Inc., 446 U.S. 578, 602 (1980).",
+     "Harrison v. PPG Indus., Inc."),
+    ("See Bellemare v. Gateway Builders, Inc., 420 N.W.2d 733 (N.D. 1988).",
+     "Bellemare v. Gateway Builders, Inc."),
+    # Suffix on the *first* party, before the " v. ".
+    ("See Hamich, Inc. v. State ex rel. Clayburgh, 1997 ND 110, 564 N.W.2d 640.",
+     "Hamich, Inc. v. State ex rel. Clayburgh"),
+    ("See Snyder's Drug Stores, Inc. v. N.D. State Bd. of Pharmacy, 219 N.W.2d 140.",
+     "Snyder's Drug Stores, Inc. v. N.D. State Bd. of Pharmacy"),
+    # Two suffix-bearing tokens in one caption.
+    ("See Best Products Co., Inc. v. Spaeth, 461 N.W.2d 91 (N.D. 1990).",
+     "Best Products Co., Inc. v. Spaeth"),
+    ("See First Interstate Bank of Fargo, N.A. v. Larson, 475 N.W.2d 538 (N.D. 1991).",
+     "First Interstate Bank of Fargo, N.A. v. Larson"),
+    ("See Anderson, Jr. v. Bank, 100 N.W.2d 1 (N.D. 1960).",
+     "Anderson, Jr. v. Bank"),
+])
+def test_comma_suffix_stays_in_party_name(text, expected):
+    c = next(c for c in scan_text(text, resolve=False) if not c.is_pin_cite)
+    assert c.antecedent_name == expected
+
+
+def test_comma_allowance_does_not_reach_into_prior_sentence():
+    """The suffix list is the guard rail.
+
+    A blanket "comma then capitalized word" rule would capture "Smith," here.
+    Only recognized corporate/generational suffixes may follow a comma.
+    """
+    text = "In Smith, Jones v. Brown, 100 N.W.2d 1 (N.D. 1960)."
+    c = next(c for c in scan_text(text, resolve=False) if not c.is_pin_cite)
+    assert c.antecedent_name == "Jones v. Brown"
+
+
+def test_ordinary_names_unaffected():
+    for text, expected in [
+        ("See Herr v. Rudolf, 25 N.W.2d 916 (N.D. 1947).", "Herr v. Rudolf"),
+        ("accord Beleal v. N. Pac. Ry. Co., 108 N.W. 33 (N.D. 1906).",
+         "Beleal v. N. Pac. Ry. Co."),
+        ("See Dickie v. Farmers Union Oil Co. of LaMoure, 2000 ND 111.",
+         "Dickie v. Farmers Union Oil Co. of LaMoure"),
+    ]:
+        c = next(c for c in scan_text(text, resolve=False) if not c.is_pin_cite)
+        assert c.antecedent_name == expected
