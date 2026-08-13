@@ -72,6 +72,61 @@ def test_rule_pin_trailing_spelled_marker_synthesizes_parent():
     assert pins[0].jurisdiction == "nd"
 
 
+def test_rule_pin_trailing_marker_with_a_subdivision_chain():
+    """"Rule 32(a)(8)(A) of the North Dakota Rules of Appellate Procedure".
+
+    A rule number carries as many subdivision levels as the rule has, and
+    briefs cite them in full — a certificate of compliance almost always
+    does. Only Civ.P. carried its spelled-out state form, so "North Dakota "
+    sat in the trailing gap, the trailing rung was rejected, and the whole
+    candidate was dropped. With N.D.R.Ev. mentioned earlier, the ladder
+    would instead fall through to the nearest preceding marker and attribute
+    Rule 32 to N.D.R.Ev. — the confidently wrong parent the doctrine forbids
+    (ndlaw-mcp, failing that way, reported it as an unresolved authority).
+    """
+    text = ("Under N.D.R.Ev. 201(b), judicial notice is limited. This brief "
+            "complies with the page limit set forth in Rule 32(a)(8)(A) of "
+            "the North Dakota Rules of Appellate Procedure.")
+    pins = _pins(scan_text(text, include_pin_cites=True))
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "N.D.R.App.P. 32"
+    assert pins[0].components["attribution"] == "trailing"
+
+
+def test_rule_pin_trailing_marker_chain_on_a_dotted_rule_number():
+    text = "See Rule 3.4(b)(1)(C) of the North Dakota Rules of Court."
+    pins = _pins(scan_text(text, include_pin_cites=True))
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "N.D.R.Ct. 3.4"
+
+
+def test_rule_pin_trailing_marker_spaced_subdivision_chain():
+    """A chain spaced off the number sits in the trailing gap, not the
+    candidate — the gap must admit the whole chain, not one parenthetical."""
+    text = "See Rule 32 (a)(8)(A) of the North Dakota Rules of Appellate Procedure."
+    pins = _pins(scan_text(text, include_pin_cites=True))
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "N.D.R.App.P. 32"
+    assert pins[0].components["attribution"] == "trailing"
+
+
+def test_rule_pin_singular_spelled_evidence_marker():
+    """Briefs write "North Dakota Rule of Evidence 201" — singular."""
+    text = "See Rule 201(b) of the North Dakota Rule of Evidence."
+    pins = _pins(scan_text(text, include_pin_cites=True))
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "N.D.R.Ev. 201"
+
+
+def test_rule_pin_prose_between_number_and_marker_still_rejects():
+    """The guard against over-attribution must survive the widened gap: a
+    marker reached through prose is not a trailing marker, and with no other
+    rung available the candidate is dropped."""
+    text = "Rule 12 and see the North Dakota Rules of Evidence for more."
+    pins = _pins(scan_text(text, include_pin_cites=True))
+    assert pins == []
+
+
 def test_rule_pin_sole_set_links_to_later_full_cite():
     """Bare form first (e.g. under a section heading), full cite later."""
     text = ("Rule 29 requires an acquittal motion. "

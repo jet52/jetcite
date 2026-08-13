@@ -372,6 +372,27 @@ def test_rule_set_markers_spelled_out():
     assert [h[2] for h in hits] == ["N.D.R.Crim.P."]
 
 
+def test_rule_set_markers_spelled_state_forms():
+    """Every ND set carries its "North Dakota ..." form, kept whole by the
+    containment dedup — without it the state name is left outside the marker
+    and a trailing attribution reaching through it is rejected."""
+    from jetcite.patterns.states.nd import rule_set_markers
+
+    for text, canon in (
+        ("the North Dakota Rules of Appellate Procedure", "N.D.R.App.P."),
+        ("the North Dakota Rules of Criminal Procedure", "N.D.R.Crim.P."),
+        ("the North Dakota Rules of Evidence", "N.D.R.Ev."),
+        ("the North Dakota Rule of Evidence", "N.D.R.Ev."),
+        ("the North Dakota Rules of Court", "N.D.R.Ct."),
+        ("the North Dakota Rules of Juvenile Procedure", "N.D.R.Juv.P."),
+        ("the North Dakota Rules of Professional Conduct", "N.D.R. Prof. Conduct"),
+        ("the North Dakota Code of Judicial Conduct", "N.D. Code Jud. Conduct"),
+    ):
+        hits = rule_set_markers(text)
+        assert [h[2] for h in hits] == [canon], text
+        assert text[hits[0][0]:hits[0][1]].startswith("North Dakota"), text
+
+
 def test_rule_set_markers_containment_dedup():
     """'Rules of Civil Procedure' inside 'Federal Rules of Civil Procedure'
     must not produce a second, ND-attributed marker."""
