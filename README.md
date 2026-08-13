@@ -280,6 +280,40 @@ Each `Source` has:
 | `url` | `str` | Generated URL |
 | `verified` | `bool \| None` | `None` = not checked, `True`/`False` = HTTP result |
 
+## Short Forms (`include_pin_cites`)
+
+Off by default — `scan_text(text, include_pin_cites=True)` (CLI: `--pin-cites`)
+adds Bluebook short forms, each linked to the full cite it refers to. Existing
+consumers see byte-identical output without the flag.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `is_pin_cite` | `bool` | This citation is a short form |
+| `parent_normalized` | `str \| None` | The full cite it refers to; `None` when explicit pin syntax was found but no antecedent resolved (kept as a warning) |
+| `pin_page` / `pin_paragraph` | `str \| None` | The pinpoint the short form carries |
+| `components["shape"]` | `str` | `reporter_pin` (`491 F.3d at 363`), `name_pin` (`Goss at 365`), `id` (`Id. at 78`), or `rule_pin` (`Rule 27(a)`) |
+
+Short forms inherit their parent's sources and never get their own `~/refs`
+files. Unresolvable bare names are dropped rather than guessed.
+
+**Rule short forms carry their attribution rung.** A bare `Rule 27(a)` names no
+rule set, so jetcite attributes one by a ladder and records which rung fired in
+`components["attribution"]`. Consumers should filter on it — the rungs are not
+equally trustworthy:
+
+| Rung | Evidence | Use |
+|---|---|---|
+| `trailing` | The set is named in the same citation — "Rule 27(a) of the North Dakota Rules of Appellate Procedure" | Nothing inferred |
+| `sole_set` | The document's own full cites use this rule number under exactly one set | Document-internal, no corpus needed |
+| `marker` | The nearest rule-set mention *anywhere* earlier, unlimited lookback | A guess about scope — in an opinion discussing two rule sets it is wrong often enough that it does not belong in a citation graph |
+
+`cite_type` is `COURT_RULE` for rule short forms (unlike case short forms, which
+stay `CASE`), so consumer cache loops treat them correctly. A rule short form
+whose set is attributed but which no full cite in the document matches gets a
+`parent_normalized` synthesized from set + number — and only when the
+attribution is explicit or uncontradicted; a `marker` attribution that conflicts
+with the document's own full cites is dropped instead.
+
 ## Caching
 
 jetcite includes a local reference cache (`~/refs/`) that stores fetched citation content for offline access and faster lookups.
