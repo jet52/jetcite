@@ -393,6 +393,82 @@ def test_rule_set_markers_spelled_state_forms():
         assert text[hits[0][0]:hits[0][1]].startswith("North Dakota"), text
 
 
+def test_rule_set_markers_six_added_sets():
+    """The six sets that parsed compact but had no spelled marker (TODO,
+    "six ND rule sets have no spelled-out marker"): the state-prefixed name
+    must be one whole marker so a trailing attribution can reach it."""
+    from jetcite.patterns.states.nd import rule_set_markers
+
+    for text, canon in (
+        ("the North Dakota Supreme Court Administrative Rules",
+         "N.D. Sup. Ct. Admin. R."),
+        ("the North Dakota Supreme Court Administrative Orders",
+         "N.D. Sup. Ct. Admin. Order"),
+        ("the North Dakota Rules for Lawyer Discipline",
+         "N.D.R. Lawyer Discipl."),
+        ("the North Dakota Admission to Practice Rules",
+         "N.D. Admission to Practice R."),
+        ("the North Dakota Rules for Continuing Legal Education",
+         "N.D.R. Continuing Legal Ed."),
+        ("the North Dakota Rules of the Judicial Conduct Commission",
+         "N.D.R. Jud. Conduct Commission"),
+    ):
+        hits = rule_set_markers(text)
+        assert [h[2] for h in hits] == [canon], text
+        assert text[hits[0][0]:hits[0][1]].startswith("North Dakota"), text
+
+
+def test_trailing_attribution_reaches_the_six_added_sets():
+    """The certificate-of-compliance shape for the added vocabularies."""
+    from jetcite import scan_text
+
+    for text, parent in (
+        ("See Rule 5 of the North Dakota Rules for Lawyer Discipline.",
+         "N.D.R. Lawyer Discipl. 5"),
+        ("Under Rule 11 of the North Dakota Supreme Court Administrative "
+         "Rules.", "N.D. Sup. Ct. Admin. R. 11"),
+        ("Rule 3 of the North Dakota Admission to Practice Rules governs.",
+         "N.D. Admission to Practice R. 3"),
+        ("Rule 4 of the North Dakota Rules for Continuing Legal Education "
+         "applies.", "N.D.R. Continuing Legal Ed. 4"),
+        ("Rule 2.1 of the North Dakota Rules of the Judicial Conduct "
+         "Commission controls.", "N.D.R. Jud. Conduct Commission 2.1"),
+    ):
+        cites = scan_text(text, include_pin_cites=True)
+        assert [c.parent_normalized for c in cites] == [parent], text
+
+
+def test_spelled_leading_full_cites():
+    """"North Dakota Rule of Evidence 201 governs" — the leading spelled
+    form no compact matcher or trailing rung could reach (TODO,
+    "spelled-out leading rule form is unmatched")."""
+    from jetcite import scan_text
+
+    for text, want in (
+        ("North Dakota Rule of Evidence 201 governs judicial notice.",
+         "N.D.R.Ev. 201"),
+        ("the North Dakota Rules of Civil Procedure 56 standard.",
+         "N.D.R.Civ.P. 56"),
+        ("North Dakota Rule of Appellate Procedure 32 sets the limits.",
+         "N.D.R.App.P. 32"),
+        ("the North Dakota Code of Judicial Conduct Rule 2.11 requires "
+         "recusal.", "N.D. Code Jud. Conduct 2.11"),
+        ("North Dakota Supreme Court Administrative Rule 11 applies.",
+         "N.D. Sup. Ct. Admin. R. 11"),
+        ("North Dakota Rule for Lawyer Discipline 5 sets the procedure.",
+         "N.D.R. Lawyer Discipl. 5"),
+    ):
+        assert want in [c.normalized for c in scan_text(text)], text
+    # the North Dakota prefix is required (federal ambiguity), prose and
+    # year-like numbers must not match
+    for text in (
+        "Rules of Evidence 201 without the state name.",
+        "the rules of court are strict here.",
+        "the North Dakota Rules of Court 2020 edition was in force.",
+    ):
+        assert scan_text(text) == [], text
+
+
 def test_rule_set_markers_containment_dedup():
     """'Rules of Civil Procedure' inside 'Federal Rules of Civil Procedure'
     must not produce a second, ND-attributed marker."""
