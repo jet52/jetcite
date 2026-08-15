@@ -1,6 +1,6 @@
 ---
 name: jetcite
-version: 2.11.0
+version: 2.11.1
 description: Parse American legal citations from text and generate URLs to official government sources.
 ---
 
