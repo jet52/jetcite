@@ -487,6 +487,58 @@ def test_nd_rule_trailing_form_rejects_semicolon_gap():
     assert [r.normalized for r in rules] == ["N.D.R.Civ.P. 60"]
 
 
+@pytest.mark.parametrize("text,expected", [
+    ("[¶12] N.D.R.Civ.P. 55(a)(3) states:", "N.D.R.Civ.P. 55"),
+    ("[¶ 7] N.D.R.App.P. 4(a)(1) governs.", "N.D.R.App.P. 4"),
+    ("[¶3] N.D.R.Crim.P. 11 applies.", "N.D.R.Crim.P. 11"),
+    ("[¶404] N.D.R.Ev. 801 defines hearsay.", "N.D.R.Ev. 801"),
+    ("[¶35] N.D. Sup. Ct. Admin. R. 41 applies.", "N.D. Sup. Ct. Admin. R. 41"),
+    ("[¶5] N.D.R. Prof. Conduct 1.7 applies.", "N.D.R. Prof. Conduct 1.7"),
+])
+def test_nd_rule_trailing_form_rejects_paragraph_marker_gap(text, expected):
+    """A "]" closes a paragraph marker, so "[¶12] N.D.R.Civ.P. 55(a)(3)" must
+    not splice the marker's "12" into a phantom "N.D.R.Civ.P. 12" — the same
+    boundary rule the semicolon test covers. Where the trailing and leading
+    rule numbers share an arity (N.D.R.Ev., N.D. Sup. Ct. Admin. R.) the
+    phantom overlapped and replaced the real cite instead of merely doubling
+    it, so the real rule went missing entirely."""
+    m = NDMatcher()
+    rules = [r for r in m.find_all(text) if "rule_set" in r.components]
+    assert [r.normalized for r in rules] == [expected]
+
+
+@pytest.mark.parametrize("text,expected", [
+    # 3-part number, 2-part pattern: "3.1" is the tail of "8.3.1"
+    ("Rule 8.3.1, N.D.R.Ct., applies.", ["N.D.R.Ct. 8.3.1"]),
+    # 2-part number, 1-part pattern: "3" is the tail of "8.3"
+    ("Rule 8.3, N.D. Sup. Ct. Admin. R., applies.",
+     ["N.D. Sup. Ct. Admin. R. 8.3"]),
+    # Unaffected trailing forms
+    ("Rule 11.10, N.D.R.Ct., applies.", ["N.D.R.Ct. 11.10"]),
+    ("Rule 3.2, N.D.R.Ct., applies.", ["N.D.R.Ct. 3.2"]),
+    ("Rule 35, N.D. Sup. Ct. Admin. R., applies.",
+     ["N.D. Sup. Ct. Admin. R. 35"]),
+    ("Rule 60(b), N.D.R.Civ.P., governs.", ["N.D.R.Civ.P. 60"]),
+    ("Rule 404(b), N.D.R.Ev., bars it.", ["N.D.R.Ev. 404"]),
+    ("Rule 1.7, N.D.R. Prof. Conduct, applies.",
+     ["N.D.R. Prof. Conduct 1.7"]),
+    # Leading forms were never vulnerable — the same-position dedup pass
+    # already keeps the longer match — but pin them so they stay that way.
+    ("N.D.R.Ct. 8.3.1 applies.", ["N.D.R.Ct. 8.3.1"]),
+    ("N.D. Sup. Ct. Admin. R. 8.3 applies.",
+     ["N.D. Sup. Ct. Admin. R. 8.3"]),
+])
+def test_nd_rule_trailing_form_rejects_tail_of_longer_number(text, expected):
+    """A lower-arity trailing pattern must not match the tail of a
+    higher-arity rule number. "Rule 8.3.1, N.D.R.Ct." yielded a spurious
+    "N.D.R.Ct. 3.1" alongside the real cite, and "Rule 8.3, N.D. Sup. Ct.
+    Admin. R." a spurious "R. 3" — neither caught by find_all's dedup, since
+    the tail starts later and normalizes differently."""
+    m = NDMatcher()
+    rules = [r for r in m.find_all(text) if "rule_set" in r.components]
+    assert [r.normalized for r in rules] == expected
+
+
 def test_nd_rule_ev():
     m = NDMatcher()
     results = m.find_all("N.D.R.Ev. 803")
