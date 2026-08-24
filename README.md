@@ -262,9 +262,12 @@ Each `Citation` object has:
 | `pinpoint` | `str \| None` | Page, paragraph, or subsection pinpoint |
 | `sources` | `list[Source]` | Available URLs with name and verification status |
 | `parallel_cites` | `list[str]` | Normalized forms of parallel citations (batch mode) |
+| `suspected_parallel_cites` | `list[str]` | Cites the source appears to have meant as parallels but punctuated as separate authorities (batch mode; see note below) |
 | `position` | `int` | Character offset in source text |
 | `antecedent_name` | `str \| None` | Best-effort case name governing the cite, e.g. `"Boedecker v. St. Alexius Hospital"` (heuristic; `None` when no name is found — see note below) |
 | `improper_parallel_pincite` | `bool` | ND style defect: this reporter cite is the parallel half of a ND public-domain pair *and* carries a page pin cite (batch mode; see note below) |
+
+> **`suspected_parallel_cites`** records a pair jetcite declines to link. A semicolon is the Bluebook separator between *different* authorities, so `State v. Albertson, 20 N.D. 512; 128 N.W. 1122` is not treated as a parallel pair — but that sentence is the pre-1960 style, where a semicolon stood where modern form puts a comma, and the pair almost certainly is one. What the source wrote is preserved (`parallel_cites` stays empty, no sources are pooled, no case name is inherited) and what it apparently meant is recorded here. Measured over 2,500 opinions of the ND corpus, 7 of 11,224 candidate links crossed a semicolon: six genuine parallels (five of them pre-1960, one a typo in a 2024 opinion) and one joining two different cases. **The field is unfiltered and carries that false positive too — read it as an observation, never as a link.** The legacy dict surfaces it under the same name; `parallel_cite` and `preferred` are never derived from it.
 
 > **`improper_parallel_pincite`** implements a rule from the North Dakota Supreme Court's supplement to the Redbook (`reference/nd-citation-style.md`): a full public-domain cite gives the North Western Reporter's **first page only**, because the ¶ is the pinpoint and appears in both sources. So `1997 ND 231, ¶ 10, 571 N.W.2d 358, 360` is improper and `…, 571 N.W.2d 358` is correct. The flag is deliberately scoped to ND pairs — other states' medium-neutral conventions are not jetcite's to assert — and is never raised for a pre-1997 ND cite (`512 N.W.2d 470, 477 (N.D. 1994)`), where the reporter pin cite *is* the correct form.
 >

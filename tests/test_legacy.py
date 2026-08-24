@@ -309,6 +309,26 @@ def test_parallel_info(tmp_path):
     add_parallel_info(entries, [cite1, cite2])
 
     assert entries[0].get("parallel_cite") == "585 N.W.2d 123"
+    assert "suspected_parallel_cites" not in entries[0]
+
+
+def test_suspected_parallel_is_recorded_but_not_asserted(tmp_path):
+    """A semicolon-separated pair reaches consumers as a record, not a link."""
+    cite1 = _nd_neutral()
+    cite1.suspected_parallel_cites = ["585 N.W.2d 123"]
+    cite2 = _nw2d()
+    cite2.suspected_parallel_cites = [cite1.normalized]
+
+    entries = [to_legacy_dict(cite1, tmp_path), to_legacy_dict(cite2, tmp_path)]
+    add_parallel_info(entries, [cite1, cite2])
+
+    assert entries[0]["suspected_parallel_cites"] == ["585 N.W.2d 123"]
+    assert entries[1]["suspected_parallel_cites"] == [cite1.normalized]
+    # Never promoted to the asserted fields.
+    assert "parallel_cite" not in entries[0]
+    assert "parallel_cite" not in entries[1]
+    assert "preferred" not in entries[0]
+    assert "preferred" not in entries[1]
 
 
 # ── constants ────────────────────────────────────────────────────

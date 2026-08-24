@@ -249,3 +249,92 @@ class TestParallelLinkAcrossPin:
         by = {c.normalized: c for c in cites}
         assert by["445 U.S. 684"].parallel_cites == []
         assert by["100 S. Ct. 1432"].parallel_cites == []
+
+
+class TestSemicolonIsNotAParallelSeparator:
+    """A semicolon separates authorities, so it never joins parallel cites.
+
+    What the source wrote is preserved — no link — and what it apparently
+    meant is recorded in suspected_parallel_cites, the same statute the
+    scanner applies to the court's own citation defects.
+
+    Measured over 2,500 opinions of the ndlaw corpus (11,224 parallel links),
+    only seven links crossed a semicolon. Six were genuine — five in the
+    pre-1960 style that used a semicolon where modern form uses a comma, one a
+    typo in a 2024 opinion — and one joined two different cases. Asserting any
+    of them would misplace a consumer's badge on a live draft; recording all
+    seven loses nothing.
+    """
+
+    @pytest.mark.parametrize("text, first, second", [
+        # Bare semicolon between two cites of different cases
+        ("See 2020 ND 30, ¶ 16, 938 N.W.2d 897; 2019 ND 12, ¶ 5.",
+         "938 N.W.2d 897", "2019 ND 12"),
+        # The measured false positive: a mangled "; ," separator
+        ("2001 ND 138, ¶ 17, 631 N.W.2d 564; , 2000 ND 147, ¶ 9.",
+         "631 N.W.2d 564", "2000 ND 147"),
+        # Semicolon after a page pin — the comma-led form the both-ends strip
+        # would otherwise let through
+        ("Palmigiani v. D'Argenio, 234 Mass. 434, 436; 125 N.E. 592.",
+         "234 Mass. 434", "125 N.E. 592"),
+        # The pre-1960 semicolon-as-parallel style
+        ("State v. Albertson, 20 N.D. 512; 128 N.W. 1122.",
+         "20 N.D. 512", "128 N.W. 1122"),
+        # A modern typo for the same thing (2002 ND 101, a real example)
+        ("Hansen v. Scott, 2002 ND 101, ¶ 7; 645 N.W.2d 223.",
+         "2002 ND 101", "645 N.W.2d 223"),
+    ])
+    def test_semicolon_pair_is_recorded_not_linked(self, text, first, second):
+        cites = scan_text(text, resolve=False)
+        by = {c.normalized: c for c in cites}
+        assert second not in by[first].parallel_cites
+        assert first not in by[second].parallel_cites
+        # ...but not lost: recorded both ways.
+        assert by[first].suspected_parallel_cites == [second]
+        assert by[second].suspected_parallel_cites == [first]
+
+    def test_comma_form_of_the_same_pair_links_and_suspects_nothing(self):
+        """The comma spelling of the pre-1960 example is unaffected."""
+        cites = scan_text("State v. Albertson, 20 N.D. 512, 128 N.W. 1122.",
+                          resolve=False)
+        by = {c.normalized: c for c in cites}
+        assert by["20 N.D. 512"].parallel_cites == ["128 N.W. 1122"]
+        assert by["128 N.W. 1122"].parallel_cites == ["20 N.D. 512"]
+        assert by["20 N.D. 512"].suspected_parallel_cites == []
+        assert by["128 N.W. 1122"].suspected_parallel_cites == []
+
+    def test_a_suspicion_merges_nothing(self):
+        """Recorded, never asserted: no sources pooled, no name inherited.
+
+        The comma form of this pair gives the N.W. cite both the ndcourts
+        source and the case name; the semicolon form must give it neither.
+        """
+        semi = scan_text("Hansen v. Scott, 2002 ND 101, ¶ 7; 645 N.W.2d 223.",
+                         resolve=False)
+        comma = scan_text("Hansen v. Scott, 2002 ND 101, ¶ 7, 645 N.W.2d 223.",
+                          resolve=False)
+        semi_nw = next(c for c in semi if c.normalized == "645 N.W.2d 223")
+        comma_nw = next(c for c in comma if c.normalized == "645 N.W.2d 223")
+        assert comma_nw.antecedent_name == "Hansen v. Scott"
+        assert semi_nw.antecedent_name is None
+        assert "ndcourts" in {s.name for s in comma_nw.sources}
+        assert "ndcourts" not in {s.name for s in semi_nw.sources}
+
+    def test_unrelated_cites_are_not_suspected(self):
+        """A sentence break is not a punctuation slip — nothing is recorded."""
+        cites = scan_text("See 445 U.S. 684. 100 S. Ct. 1432 is a different "
+                          "case.", resolve=False)
+        for c in cites:
+            assert c.parallel_cites == []
+            assert c.suspected_parallel_cites == []
+
+    def test_serialization_carries_the_record(self):
+        cites = scan_text("State v. Albertson, 20 N.D. 512; 128 N.W. 1122.",
+                          resolve=False)
+        by = {c.normalized: c for c in cites}
+        d = by["20 N.D. 512"].to_dict()
+        assert d["suspected_parallel_cites"] == ["128 N.W. 1122"]
+        assert "parallel_cites" not in d
+        # Absent, not empty, when there is nothing to record.
+        plain = scan_text("See 2024 ND 156.", resolve=False)[0].to_dict()
+        assert "suspected_parallel_cites" not in plain
