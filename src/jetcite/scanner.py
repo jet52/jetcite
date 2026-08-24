@@ -119,7 +119,10 @@ def _detect_parallel_citations(citations: list[Citation], text: str) -> None:
 
         # Should not contain sentence-ending punctuation or text that indicates
         # a new thought (period, "see", "and", etc.)
-        inner = stripped.lstrip(",;").strip()
+        # Strip separators from both ends: a trailing comma belongs to the
+        # following citation, not to the pinpoint, and would otherwise fail
+        # the $-anchored pinpoint test below (", 691," -> "691," -> no match).
+        inner = stripped.strip(",;").strip()
         if any(sep in inner.lower() for sep in (".", "see ", "and ", "but ", "cf.")):
             continue
 

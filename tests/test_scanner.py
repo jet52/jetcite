@@ -1,5 +1,7 @@
 """Tests for the batch scanner."""
 
+import pytest
+
 from jetcite.scanner import lookup, scan_text
 
 
@@ -168,3 +170,82 @@ class TestTrailingFullCitePins:
                           resolve=False)
         c = next(x for x in cites if x.normalized == "259 N.W.2d 621")
         assert c.pinpoint is None
+
+
+class TestParallelLinkAcrossPin:
+    """A pinpoint between two parallel cites must not break the link.
+
+    The separator between the pair carries the following citation's leading
+    comma (", 691,"), which once survived the strip and failed the anchored
+    pinpoint test. See _detect_parallel_citations in scanner.py.
+    """
+
+    @pytest.mark.parametrize("text, lead, parallel", [
+        # The reported case: bare page pin, U.S. Reports + S. Ct.
+        ("Whalen v. United States, 445 U.S. 684, 691, 100 S. Ct. 1432 (1980).",
+         "445 U.S. 684", "100 S. Ct. 1432"),
+        # Page range
+        ("Whalen v. United States, 445 U.S. 684, 691-92, 100 S. Ct. 1432 (1980).",
+         "445 U.S. 684", "100 S. Ct. 1432"),
+        # En-dash range
+        ("Whalen v. United States, 445 U.S. 684, 691–92, 100 S. Ct. 1432 (1980).",
+         "445 U.S. 684", "100 S. Ct. 1432"),
+        # "at" form
+        ("Whalen v. United States, 445 U.S. 684, at 691, 100 S. Ct. 1432 (1980).",
+         "445 U.S. 684", "100 S. Ct. 1432"),
+        # Regression: ND neutral paragraph pin, which never broke
+        ("Olson v. Olson, 2020 ND 30, ¶ 16, 938 N.W.2d 897.",
+         "2020 ND 30", "938 N.W.2d 897"),
+        # Regression: paragraph range
+        ("Olson v. Olson, 2024 ND 156, ¶¶ 7-9, 10 N.W.3d 500.",
+         "2024 ND 156", "10 N.W.3d 500"),
+    ])
+    def test_pin_between_parallels_still_links(self, text, lead, parallel):
+        cites = scan_text(text, resolve=False)
+        by = {c.normalized: c for c in cites}
+        assert parallel in by[lead].parallel_cites
+        assert lead in by[parallel].parallel_cites
+
+    def test_three_member_group_chains_across_a_pin(self):
+        """A pin must not change the shape of a three-cite group.
+
+        Linking is pairwise over adjacent cites, so the group is a chain, not
+        a clique. The point is that the pinned text produces the same chain as
+        the unpinned text.
+        """
+        pinned = scan_text(
+            "Whalen v. United States, 445 U.S. 684, 691, 100 S. Ct. 1432, "
+            "63 L. Ed. 2d 715 (1980).", resolve=False)
+        plain = scan_text(
+            "Whalen v. United States, 445 U.S. 684, 100 S. Ct. 1432, "
+            "63 L. Ed. 2d 715 (1980).", resolve=False)
+        shape = {c.normalized: sorted(c.parallel_cites) for c in pinned}
+        assert shape == {c.normalized: sorted(c.parallel_cites) for c in plain}
+        assert shape == {
+            "445 U.S. 684": ["100 S. Ct. 1432"],
+            "100 S. Ct. 1432": ["445 U.S. 684", "63 L. Ed. 2d 715"],
+            "63 L. Ed. 2d 715": ["100 S. Ct. 1432"],
+        }
+
+    def test_pin_keeps_its_own_pinpoint(self):
+        """Linking the pair must not disturb the lead cite's pinpoint."""
+        cites = scan_text(
+            "Whalen v. United States, 445 U.S. 684, 691, 100 S. Ct. 1432 (1980).",
+            resolve=False)
+        by = {c.normalized: c for c in cites}
+        assert by["445 U.S. 684"].pinpoint == "at 691"
+
+    @pytest.mark.parametrize("text", [
+        # Sentence break between the two cites
+        "See 445 U.S. 684. 100 S. Ct. 1432 is a different case.",
+        # Intervening clause, over the 40-character separator ceiling
+        "See 445 U.S. 684, 691, which the court distinguished at some length "
+        "in a later passage, 100 S. Ct. 1432.",
+        # Intervening prose under the ceiling is still not a pinpoint
+        "See 445 U.S. 684, 691, distinguished by, 100 S. Ct. 1432.",
+    ])
+    def test_non_parallel_pairs_stay_unlinked(self, text):
+        cites = scan_text(text, resolve=False)
+        by = {c.normalized: c for c in cites}
+        assert by["445 U.S. 684"].parallel_cites == []
+        assert by["100 S. Ct. 1432"].parallel_cites == []
