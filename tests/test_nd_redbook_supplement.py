@@ -7,7 +7,8 @@ Covers the three machine-checkable rules in the supplement:
   2. The special short form — first party's name + pinpoint — used where
      "id." is unavailable but the full form appeared in the same paragraph.
      A page pin takes "at" ("Falcon, at 836"); a paragraph pin does not
-     ("Kuntz, ¶ 11"). The older "at ¶" spelling still parses.
+     ("Kuntz, ¶ 11"), and neither does "id." ("Id. ¶ 7"). The older "at ¶"
+     spelling still parses in both.
   3. A full public-domain cite gives the North Western Reporter's first page
      only; a pin cite to the reporter in that pair is improper.
 
@@ -112,11 +113,15 @@ def test_name_at_paragraph_short_form_resolves_to_nd_app_parent():
     assert pin.pin_paragraph == "8"
 
 
-def test_id_at_paragraph_form():
-    text = "State v. Erickson, 2018 ND 133, ¶ 7, 911 N.W.2d 913. Id. at ¶ 7."
-    pin = _pins(text)["Id. at ¶ 7"]
-    assert pin.parent_normalized == "2018 ND 133"
-    assert pin.pin_paragraph == "7"
+def test_id_paragraph_form():
+    """The supplement dropped the "at" here too: the form is "Id. ¶ 7". The
+    older spelling still parses, because drafts written before the change
+    carry it."""
+    for tail, norm in (("Id. ¶ 7.", "Id. ¶ 7"), ("Id. at ¶ 7.", "Id. at ¶ 7")):
+        text = f"State v. Erickson, 2018 ND 133, ¶ 7, 911 N.W.2d 913. {tail}"
+        pin = _pins(text)[norm]
+        assert pin.parent_normalized == "2018 ND 133", tail
+        assert pin.pin_paragraph == "7", tail
 
 
 # ---------------------------------------------------------------------------
