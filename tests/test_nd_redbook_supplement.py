@@ -4,9 +4,10 @@ Covers the three machine-checkable rules in the supplement:
 
   1. Court of Appeals public-domain cites use "ND App" and share a
      year/number space with the Supreme Court's "ND" cites.
-  2. The special short form — first party's name + "at" + pinpoint — used
-     where "id." is unavailable but the full form appeared in the same
-     paragraph ("Kuntz, at ¶ 11").
+  2. The special short form — first party's name + pinpoint — used where
+     "id." is unavailable but the full form appeared in the same paragraph.
+     A page pin takes "at" ("Falcon, at 836"); a paragraph pin does not
+     ("Kuntz, ¶ 11"). The older "at ¶" spelling still parses.
   3. A full public-domain cite gives the North Western Reporter's first page
      only; a pin cite to the reporter in that pair is improper.
 
@@ -182,3 +183,15 @@ def test_nd_app_legacy_entry_carries_distinct_local_path():
     (app,) = [c for c in scan_text("2005 ND App 7") if c.normalized.startswith("2005")]
     entry = to_legacy_dict(app, Path("/refs"))
     assert entry["local_path"] == "/refs/opin/NDApp/2005/2005NDApp7.md"
+
+
+def test_name_paragraph_short_form_without_at_resolves():
+    """The supplement dropped the "at" before a paragraph pin. Both spellings
+    resolve: the current one, and the older one that existing drafts carry."""
+    base = ("Kuntz v. State, 2019 ND 46, ¶ 11, 923 N.W.2d 513. "
+            "Another v. Case, 2020 ND 5, ¶ 3, 1 N.W.3d 2. ")
+    for tail, norm in (("Kuntz, ¶ 11.", "Kuntz, ¶ 11"),
+                       ("Kuntz, at ¶ 11.", "Kuntz, at ¶ 11")):
+        pin = _pins(base + tail)[norm]
+        assert pin.parent_normalized == "2019 ND 46", tail
+        assert pin.pin_paragraph == "11", tail
