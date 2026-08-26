@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "jetcite"
-version = "2.13.0"
+version = "2.14.0"
 description = "American legal citation parser and linker"
 requires-python = ">=3.10"
 dependencies = [
