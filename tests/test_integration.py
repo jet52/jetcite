@@ -450,9 +450,9 @@ def test_opinion_finds_s_ct(opinion_cites):
 
 
 def test_opinion_parallel_nd_nw(opinion_cites):
-    nd_252 = _find(opinion_cites, "2013 ND 252")
-    assert len(nd_252) == 1
-    assert any("N.W." in p for p in nd_252[0].parallel_cites)
+    nd_901 = _find(opinion_cites, "2013 ND 901")
+    assert len(nd_901) == 1
+    assert any("N.W." in p for p in nd_901[0].parallel_cites)
 
 
 def test_opinion_finds_court_rules(opinion_cites):

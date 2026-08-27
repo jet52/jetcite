@@ -604,7 +604,7 @@ def test_fixture_brief_end_to_end():
     default = scan_text(text)
     norms = [c.normalized for c in default]
     assert "491 F.3d 355" in norms
-    assert "2024 ND 156" in norms
+    assert "2024 ND 907" in norms
     assert "9 N.W.3d 100" in norms
     assert all(not c.is_pin_cite for c in default)
 
@@ -623,16 +623,16 @@ def test_fixture_brief_end_to_end():
     # Shape 3: bare-name pins
     assert by_norm["Goss at 365"].parent_normalized == "491 F.3d 355"
     assert by_norm["Niemeyer, ¶ 12"].parent_normalized in (
-        "2024 ND 156", "9 N.W.3d 100")
+        "2024 ND 907", "9 N.W.3d 100")
 
     # Neutral "at ¶" short form linked to the earlier full cite
-    nd_pin = by_norm["2024 ND 156 at ¶ 14"]
-    assert nd_pin.parent_normalized == "2024 ND 156"
+    nd_pin = by_norm["2024 ND 907 at ¶ 14"]
+    assert nd_pin.parent_normalized == "2024 ND 907"
 
     # Id. chain resolves transitively through the neutral pin
     id_pins = [p for p in pins if p.components.get("shape") == "id"]
     assert len(id_pins) == 2
-    assert all(p.parent_normalized == "2024 ND 156" for p in id_pins)
+    assert all(p.parent_normalized == "2024 ND 907" for p in id_pins)
 
 
 # ── Legacy / cache invariants ────────────────────────────────────────────────
