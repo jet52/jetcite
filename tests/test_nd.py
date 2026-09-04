@@ -195,6 +195,35 @@ def test_nd_const_old_of_the():
         assert results[0].sources[0].url == "https://ndconst.org/artii/sec1/", text
 
 
+def test_n_dak_const_old_continuous():
+    """`N. Dak.` / `N.Dak.` Const. continuous-section form (1889 numbering)."""
+    m = NDMatcher()
+    for text in (
+        "N. Dak. Const. § 121",
+        "N.Dak. Const. § 121",
+        "N. Dak.Const. § 121",
+        "Section 121, N. Dak. Const.",
+    ):
+        results = m.find_all(text)
+        assert len(results) == 1, text
+        assert results[0].normalized == "N.D. Const. § 121", text
+
+
+def test_n_dak_const_article_form():
+    """Modern article/section form with N. Dak. abbreviation."""
+    m = NDMatcher()
+    results = m.find_all("N. Dak. Const. art. I, § 20")
+    assert len(results) == 1
+    assert results[0].normalized == "N.D. Const. art. I, § 20"
+
+
+def test_n_dak_not_bare_dakota_prose():
+    """Do not over-match bare 'Dak.' or unadorned 'North Dakota' prose."""
+    m = NDMatcher()
+    assert m.find_all("the Dak. prairie was dry") == []
+    assert m.find_all("North Dakota is a state") == []
+
+
 def test_nd_const_old_lead_and_trail_comma():
     m = NDMatcher()
     for text in (

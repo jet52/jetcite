@@ -214,3 +214,57 @@ def test_spaced_nw_linebreak():
     m = RegionalReporterMatcher()
     results = m.find_all("194 N.\nW. 663")
     assert [r.normalized for r in results] == ["194 N.W. 663"]
+
+
+# ── Phase 0: N.D. Reports / N.D. App. / N. Dak. ─────────────────────────────
+
+
+def test_four_digit_year_not_nd_reports():
+    """`2024 N.D. 156` must not be eaten as Reports volume `024 N.D. 156`.
+
+    N.D. Reports volumes are 1–79 (1890–1953). A 4-digit year + `N.D.` is
+    either a mispunctuated neutral cite or prose; returning the truncated
+    Reports cite is always wrong. Neutral form remains `2024 ND 156`.
+    """
+    from jetcite import lookup
+
+    m = RegionalReporterMatcher()
+    assert m.find_all("2024 N.D. 156") == []
+    assert lookup("2024 N.D. 156") is None
+    # Real Reports cites still parse (including leading zeros not applicable).
+    assert [r.normalized for r in m.find_all("1 N.D. 369")] == ["1 N.D. 369"]
+    assert [r.normalized for r in m.find_all("50 N.D. 123")] == ["50 N.D. 123"]
+
+
+def test_nd_app_reporter():
+    """N.D. App. is the Court of Appeals reporter; `(?!C|A)` must not block it."""
+    m = RegionalReporterMatcher()
+    for text in ("1 N.D. App. 1", "1 N. D. App. 1"):
+        results = m.find_all(text)
+        assert len(results) == 1, text
+        assert results[0].normalized == "1 N.D. App. 1", text
+        assert results[0].jurisdiction == "nd"
+        assert results[0].components["reporter"] == "N.D. App."
+        assert "courtlistener.com" in results[0].sources[0].url
+
+
+def test_nd_app_does_not_break_ndcc_ndac():
+    """Allowing App. must not open a hole for N.D.C.C. / N.D.A.C."""
+    m = RegionalReporterMatcher()
+    for text in (
+        "N.D.C.C. § 1-02-13",
+        "N.D.A.C. § 43-02-05-01",
+        "section 12.1-20-03, N. D. C. C., applies",
+        "see N. D. A. C. § 75-02-04.1-01",
+    ):
+        nd_case = [r for r in m.find_all(text)
+                   if r.components.get("reporter") in ("N.D.", "N.D. App.")]
+        assert nd_case == [], text
+
+
+def test_n_dak_reports():
+    """Archaic `N. Dak.` / `N.Dak.` reporter spelling normalizes to N.D."""
+    m = RegionalReporterMatcher()
+    assert [r.normalized for r in m.find_all("1 N. Dak. 75")] == ["1 N.D. 75"]
+    assert [r.normalized for r in m.find_all("2 N.Dak. 401")] == ["2 N.D. 401"]
+    assert m.find_all("1 N. Dak. 75")[0].jurisdiction == "nd"
