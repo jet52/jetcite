@@ -67,3 +67,31 @@ def test_standard_neutral_mt():
     results = m.find_all("1998 MT 12")
     assert len(results) == 1
     assert results[0].jurisdiction == "mt"
+
+def test_nd_neutral_period_spelled():
+    """Period-spelled ND neutrals normalize to compact ND / ND App."""
+    from jetcite import lookup
+
+    m = NeutralCitationMatcher()
+    for text, want in (
+        ("2024 N.D. 156", "2024 ND 156"),
+        ("1997 N.D. 24", "1997 ND 24"),
+        ("2024 N. D. 156", "2024 ND 156"),
+        ("2005 N.D. App. 8", "2005 ND App 8"),
+        ("2005 N. D. App. 8", "2005 ND App 8"),
+    ):
+        results = m.find_all(text)
+        assert len(results) == 1, text
+        assert results[0].normalized == want, text
+        assert results[0].jurisdiction == "nd"
+        cite = lookup(text)
+        assert cite is not None, text
+        assert cite.normalized == want, text
+
+
+def test_nd_neutral_compact_app_unchanged():
+    m = NeutralCitationMatcher()
+    results = m.find_all("2005 ND App 8")
+    assert len(results) == 1
+    assert results[0].normalized == "2005 ND App 8"
+
