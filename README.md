@@ -331,7 +331,7 @@ jetcite --scan document.md --refs-dir ~/refs
 ```
 
 Content-type-centric layout:
-- `opin/{reporter}/` — all opinions (ND/, NW2d/, US/, F3d/, P2d/, etc.)
+- `opin/{reporter}/` — all opinions (ND/, NW2d/, US/, F3d/, P2d/, etc.); North Dakota Reports (`N.D.`) caches under `NDReports/`, because `ND/` is the neutral-citation tree
 - `statute/{code}/` — statutes (NDCC/, USC/)
 - `reg/{code}/` — regulations (NDAC/, CFR/)
 - `cnst/{jurisdiction}/` — constitutions (ND/, US/)

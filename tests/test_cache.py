@@ -156,6 +156,23 @@ def test_reporter_dir_strips_periods_spaces():
     assert _reporter_dir("L. Ed. 2d") == "LEd2d"
 
 
+def test_reporter_dir_nd_reports_does_not_collide_with_neutral():
+    # "N.D." stripped is "ND", the neutral-citation directory. A North Dakota
+    # Reports cite must not be cached among the neutral-cite opinions.
+    from jetcite import scan_text
+
+    assert _reporter_dir("N.D.") == "NDReports"
+    for text in ("61 N.D. 359", "61 N. D. 359"):
+        (cite,) = scan_text(text)
+        assert str(citation_path(cite)) == "opin/NDReports/61/359.md"
+    (neutral,) = scan_text("2005 ND 7")
+    assert str(citation_path(neutral)) == "opin/ND/2005/2005ND7.md"
+    parallel = {c.components.get("reporter"): str(citation_path(c))
+                for c in scan_text("61 N.D. 359, 238 N.W. 552")}
+    assert parallel == {"N.D.": "opin/NDReports/61/359.md",
+                        "N.W.": "opin/NW/238/552.md"}
+
+
 def test_reporter_dir_strips_apostrophes():
     assert _reporter_dir("F. App'x") == "FAppx"
     assert _reporter_dir("F. App\u2019x") == "FAppx"
@@ -196,7 +213,7 @@ def test_path_nd_reporter_nd():
         normalized="50 N.D. 123",
         components={"volume": "50", "reporter": "N.D.", "page": "123"},
     )
-    assert _citation_path(cite) == Path("opin/ND/50/123.md")
+    assert _citation_path(cite) == Path("opin/NDReports/50/123.md")
 
 
 def test_path_federal_scotus():
