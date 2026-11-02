@@ -46,7 +46,7 @@ _NDCC_SECTION = re.compile(
     r'(\d{1,2})(?:\.(\d+))?'
     rf'{_SEP}(\d{{1,2}})(?:\.(\d+))?'
     rf'{_SEP}(\d{{1,2}})(?:\.(\d+))?'
-    r'(?:\([^)]+\))?'
+    r'((?:\((?:\d{1,2}|[A-Za-z]{1,4})\))*)'  # subsection(s): "(1)(a)"
     r'(?:(?=[,\s]*(?:of\s+the\s+)?'
     r'(?:North\s+Dakota\s+Century\s+Code|N[\s.]*D[\s.]*C(?:ent)*[.\s]*C(?:ode)*))|\W|$)',
     re.IGNORECASE,
@@ -695,6 +695,7 @@ class NDMatcher(BaseMatcher):
             title, title_dec = m.group(1), m.group(2)
             chapter, chapter_dec = m.group(3), m.group(4)
             section, section_dec = m.group(5), m.group(6)
+            subsection = m.group(7) or None
 
             title_full = f"{title}.{title_dec}" if title_dec else title
             chapter_full = f"{chapter}.{chapter_dec}" if chapter_dec else chapter
@@ -714,7 +715,9 @@ class NDMatcher(BaseMatcher):
                     "title": title, "title_dec": title_dec,
                     "chapter": chapter, "chapter_dec": chapter_dec,
                     "section": section, "section_dec": section_dec,
+                    "subsection": subsection,
                 },
+                pinpoint=subsection,
                 sources=sources,
                 position=m.start(),
             ))
@@ -1074,15 +1077,50 @@ class NDMatcher(BaseMatcher):
     def _rule_cite(self, m, rule_set: str, display: str,
                    parts: list[str]) -> Citation:
         parts_str = ".".join(parts)
+        subdivision, raw_text = _rule_subdivision(m)
         return Citation(
-            raw_text=m.group(0),
+            raw_text=raw_text,
             cite_type=CitationType.COURT_RULE,
             jurisdiction="nd",
             normalized=f"{display} {parts_str}",
-            components={"rule_set": rule_set, "parts": parts},
+            components={"rule_set": rule_set, "parts": parts,
+                        "subdivision": subdivision},
+            pinpoint=subdivision,
             sources=[Source("ndcourts", nd_court_rule_url(rule_set, parts))],
             position=m.start(),
         )
+
+
+# Subdivision run attached to a rule or section number: "(b)", "(b)(1)",
+# "(a)(1)(A)". Components are 1-2 digits or 1-4 letters, so a year "(2007)"
+# or a prose parenthetical never reads as a subdivision.
+_SUBDIVISION_RE = re.compile(r'(?:\((?:\d{1,2}|[A-Za-z]{1,4})\))+')
+
+
+def _rule_subdivision(m) -> tuple[str | None, str]:
+    """Subdivision written on the rule number, and the raw_text covering it.
+
+    Suffix form ("60(b), N.D.R.Civ.P.") carries it inside the match, right
+    after the number group. Prefix form ("N.D.R.Civ.P. 60(b)") ends at the
+    number, so the subdivision sits just past the match and raw_text is
+    extended over it — it is part of the citation as written. The
+    subdivision never enters ``normalized``: 60(b) and 60(b)(1) are the
+    same authority, pinned differently.
+    """
+    text = m.string
+    number_ends = [
+        m.end(i) for i in range(1, (m.lastindex or 0) + 1)
+        if m.group(i) is not None and re.fullmatch(r"[\d.]+", m.group(i))
+    ]
+    for e in number_ends:
+        sm = _SUBDIVISION_RE.match(text, e)
+        if sm and sm.end() <= m.end():
+            return sm.group(0), m.group(0)
+    if m.group(0) and m.group(0)[-1].isdigit():
+        sm = _SUBDIVISION_RE.match(text, m.end())
+        if sm:
+            return sm.group(0), text[m.start():sm.end()]
+    return None, m.group(0)
 
 
 # ---------------------------------------------------------------------------

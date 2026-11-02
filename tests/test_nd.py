@@ -720,3 +720,59 @@ def test_nd_proc_r_decimal_is_a_subsection_pinpoint():
             if "Proc. R." in c.normalized][0]
     assert cite.normalized == "N.D.R. Proc. R. 3"
     assert cite.components["pinpoint"] == "3.1"
+
+
+# ---------------------------------------------------------------------------
+# Subdivisions on rules and sections: carried in pinpoint, never normalized
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("text,normalized,subdivision,raw", [
+    ("N.D.R.Ev. 702(b)", "N.D.R.Ev. 702", "(b)", "N.D.R.Ev. 702(b)"),
+    ("N.D.R.Civ.P. 60(b)(1)", "N.D.R.Civ.P. 60", "(b)(1)", "N.D.R.Civ.P. 60(b)(1)"),
+    ("Rule 60(b), N.D.R.Civ.P.", "N.D.R.Civ.P. 60", "(b)", "Rule 60(b), N.D.R.Civ.P."),
+    ("N.D.R.Civ.P. 56(a)", "N.D.R.Civ.P. 56", "(a)", "N.D.R.Civ.P. 56(a)"),
+    ("N.D.R.Ev. 702", "N.D.R.Ev. 702", None, "N.D.R.Ev. 702"),
+])
+def test_rule_subdivision_in_pinpoint(text, normalized, subdivision, raw):
+    results = NDMatcher().find_all(text)
+    rules = [c for c in results if c.cite_type == CitationType.COURT_RULE]
+    assert len(rules) == 1
+    c = rules[0]
+    assert c.normalized == normalized
+    assert c.pinpoint == subdivision
+    assert c.components["subdivision"] == subdivision
+    assert c.raw_text.strip() == raw
+
+
+def test_rule_year_parenthetical_is_not_a_subdivision():
+    results = NDMatcher().find_all("N.D.R.Civ.P. 60(2019) was amended.")
+    rules = [c for c in results if c.cite_type == CitationType.COURT_RULE]
+    assert len(rules) == 1
+    assert rules[0].pinpoint is None
+    assert rules[0].raw_text.strip() == "N.D.R.Civ.P. 60"
+
+
+def test_rule_prose_parenthetical_is_not_a_subdivision():
+    results = NDMatcher().find_all("N.D.R.Ev. 403 (emphasis added).")
+    rules = [c for c in results if c.cite_type == CitationType.COURT_RULE]
+    assert len(rules) == 1
+    assert rules[0].pinpoint is None
+
+
+@pytest.mark.parametrize("text,subsection", [
+    ("N.D.C.C. § 28-01-16(1)(a)", "(1)(a)"),
+    ("N.D.C.C. § 28-01-16(2)", "(2)"),
+    ("Section 14-09-06.2(1) of the North Dakota Century Code", "(1)"),
+    ("N.D.C.C. § 28-01-16", None),
+])
+def test_ndcc_subsection_in_pinpoint(text, subsection):
+    results = [c for c in NDMatcher().find_all(text)
+               if c.cite_type == CitationType.STATUTE]
+    assert len(results) == 1
+    c = results[0]
+    assert c.normalized.startswith("N.D.C.C. § ")
+    assert "(" not in c.normalized
+    assert c.pinpoint == subsection
+    assert c.components["subsection"] == subsection
+    if subsection:
+        assert subsection in c.raw_text

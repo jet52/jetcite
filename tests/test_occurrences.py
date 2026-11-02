@@ -146,3 +146,108 @@ class TestLegacyDict:
         d = rep.to_dict()
         assert d["is_repeat"] is True
         assert d["parent_normalized"] == rep.parent_normalized
+
+
+# ---------------------------------------------------------------------------
+# Non-case repeats: statutes, court rules, constitutions
+# ---------------------------------------------------------------------------
+
+PROVISIONS = (
+    "[¶1] The motion did not invoke N.D.R.Ev. 702. At the hearing, counsel "
+    "said nothing further. "
+    "[¶2] The appellee argues no objection rested on N.D.R.Ev. 702, so "
+    "the issue is forfeited. "
+    "[¶3] Under N.D.R.Ev. 702(b), an expert may testify. Under "
+    "N.D.R.Ev. 702(c), the testimony must rest on sufficient facts. Id. "
+    "[¶4] Rule 702(c), N.D.R.Ev., does not authorize it. "
+    "[¶5] See N.D.R.Civ.P. 56(b). Also N.D.R.Civ.P. 56(a) and "
+    "N.D.R.Ev. 901(a). "
+    "[¶6] N.D.C.C. § 28-01-16(1)(a) applies. So does "
+    "N.D.C.C. § 28-01-16(2). N.D. Const. art. VI, § 2 controls. "
+    "Again, N.D. Const. art. VI, § 2."
+)
+
+
+def _fulls_of(cites, normalized):
+    return [c for c in cites if c.normalized == normalized and not c.is_pin_cite]
+
+
+class TestProvisionRepeats:
+    def test_every_rule_occurrence_emitted(self):
+        cites = _scan(PROVISIONS, include_pin_cites=True)
+        ev702 = _fulls_of(cites, "N.D.R.Ev. 702")
+        # ¶1, ¶2, 702(b), 702(c), and the suffix-form "Rule 702(c), N.D.R.Ev."
+        assert len(ev702) == 5
+        assert [c.is_repeat for c in ev702] == [False, True, True, True, True]
+        assert all(c.parent_normalized == "N.D.R.Ev. 702" for c in ev702[1:])
+        assert [c.pinpoint for c in ev702] == [None, None, "(b)", "(c)", "(c)"]
+
+    def test_repeat_links_to_first_occurrence_position(self):
+        cites = _scan(PROVISIONS)
+        ev702 = _fulls_of(cites, "N.D.R.Ev. 702")
+        first = ev702[0]
+        for rep in ev702[1:]:
+            assert rep.components["parent_position"] == first.position
+            assert rep.position > first.position
+
+    def test_different_subdivision_is_repeat_not_new_authority(self):
+        cites = _scan(PROVISIONS)
+        crim52 = _fulls_of(cites, "N.D.R.Civ.P. 56")
+        assert [(c.is_repeat, c.pinpoint) for c in crim52] == [
+            (False, "(b)"), (True, "(a)")]
+        assert not any(c.normalized.startswith("N.D.R.Civ.P. 56(")
+                       for c in cites)
+
+    def test_statute_subsections_each_occurrence(self):
+        cites = _scan(PROVISIONS)
+        stat = _fulls_of(cites, "N.D.C.C. § 28-01-16")
+        assert [(c.is_repeat, c.pinpoint) for c in stat] == [
+            (False, "(1)(a)"), (True, "(2)")]
+        assert stat[0].components["subsection"] == "(1)(a)"
+        assert stat[0].raw_text.startswith("N.D.C.C. § 28-01-16(1)(a)")
+
+    def test_constitution_repeat_emitted(self):
+        cites = _scan(PROVISIONS)
+        const = _fulls_of(cites, "N.D. Const. art. VI, § 2")
+        assert [c.is_repeat for c in const] == [False, True]
+        assert const[1].parent_normalized == "N.D. Const. art. VI, § 2"
+
+    def test_bare_id_inherits_subdivision(self):
+        cites = _scan(PROVISIONS, include_pin_cites=True)
+        ids = [c for c in cites if c.is_pin_cite and c.raw_text.startswith("Id")]
+        assert len(ids) == 1
+        assert ids[0].parent_normalized == "N.D.R.Ev. 702"
+        assert ids[0].pinpoint == "(c)"
+        assert ids[0].components["pinpoint_inherited"] is True
+
+    def test_repeat_inherits_parent_sources(self):
+        cites = _scan(PROVISIONS)
+        ev702 = _fulls_of(cites, "N.D.R.Ev. 702")
+        assert ev702[0].sources
+        for rep in ev702[1:]:
+            assert [s.url for s in rep.sources] == [s.url for s in ev702[0].sources]
+
+    def test_default_mode_unchanged_for_provisions(self):
+        cites = scan_text(PROVISIONS, resolve=False, include_pin_cites=True)
+        assert not any(c.is_repeat for c in cites)
+        norms = [c.normalized for c in cites if not c.is_pin_cite]
+        assert norms.count("N.D.R.Ev. 702") == 1
+        assert norms.count("N.D.C.C. § 28-01-16") == 1
+        assert norms.count("N.D. Const. art. VI, § 2") == 1
+        # The re-cited rule still anchors the following Id. (shadow path).
+        ids = [c for c in cites if c.is_pin_cite and c.raw_text.startswith("Id")]
+        assert ids[0].parent_normalized == "N.D.R.Ev. 702"
+
+    def test_positions_sorted(self):
+        cites = _scan(PROVISIONS, include_pin_cites=True)
+        positions = [c.position for c in cites]
+        assert positions == sorted(positions)
+
+    def test_legacy_dict_repeat_fields(self, tmp_path):
+        cites = _scan(PROVISIONS)
+        rep = _fulls_of(cites, "N.D.R.Ev. 702")[2]
+        d = to_legacy_dict(rep, tmp_path)
+        assert d["is_repeat"] is True
+        assert d["parent_normalized"] == "N.D.R.Ev. 702"
+        assert d["pinpoint"] == "(b)"
+        assert d["cite_text"] == "N.D.R.Ev. 702(b)"
