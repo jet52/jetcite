@@ -892,3 +892,154 @@ class TestQuotedMatterAntecedents:
         text = "Before “an open quote with no close\nnext paragraph.\n"
         spans = _quoted_spans(text)
         assert spans == [(7, text.index("\n"))]
+
+
+# ── Id. antecedent guards: parentheticals, ¶ pins, unparsed sources ──────────
+
+def test_id_ignores_authority_in_quoting_parenthetical():
+    """Bluebook 4.1: sources in explanatory parentheticals are ignored."""
+    text = (
+        "State v. Abel, 2020 ND 10, ¶ 5 (quoting State v. Baker, "
+        "432 N.W.2d 553, 555 (N.D. 1988)). Id. ¶ 6."
+    )
+    pins = _pins(scan_text(text, resolve=False, include_pin_cites=True))
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "2020 ND 10"
+
+
+def test_id_ignores_authority_in_citing_parenthetical():
+    text = (
+        "Abel v. Baker, 500 N.W.2d 100, 104 (N.D. 1993) (citing Crow v. Dove, "
+        "2001 ND 22, ¶ 7). Id. at 105."
+    )
+    pins = _pins(scan_text(text, resolve=False, include_pin_cites=True))
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "500 N.W.2d 100"
+
+
+def test_id_inside_parenthetical_sees_its_own_cites():
+    text = (
+        "State v. Abel, 2020 ND 10, ¶ 5 (citing State v. Baker, "
+        "2001 ND 22, ¶ 7; id. ¶ 9)."
+    )
+    pins = _pins(scan_text(text, resolve=False, include_pin_cites=True))
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "2001 ND 22"
+
+
+def test_unbalanced_parenthetical_hides_nothing():
+    text = "See (quoting State v. Baker, 2001 ND 22, ¶ 7. Id. ¶ 8."
+    pins = _pins(scan_text(text, resolve=False, include_pin_cites=True))
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "2001 ND 22"
+
+
+def test_paragraph_id_skips_rule_to_case():
+    """Only opinions carry ¶ numbers — same guard as the page pin."""
+    text = (
+        "State v. Abel, 2020 ND 10, ¶ 5. The court applied "
+        "N.D.R.Crim.P. 30. Id. ¶¶ 16, 19."
+    )
+    pins = _pins(scan_text(text, resolve=False, include_pin_cites=True))
+    ids = [p for p in pins if p.components.get("shape") == "id"]
+    assert len(ids) == 1
+    assert ids[0].parent_normalized == "2020 ND 10"
+
+
+def test_bare_id_after_rule_still_resolves_to_rule():
+    text = "State v. Abel, 2020 ND 10, ¶ 5. See N.D.R.Crim.P. 30. Id."
+    pins = _pins(scan_text(text, resolve=False, include_pin_cites=True))
+    ids = [p for p in pins if p.components.get("shape") == "id"]
+    assert len(ids) == 1
+    assert ids[0].parent_normalized == "N.D.R.Crim.P. 30"
+
+
+def test_id_after_brief_cite_unresolved():
+    text = "State v. Abel, 2020 ND 10, ¶ 5. At. Br. 18, ¶ 28. Id. ¶ 29."
+    pins = _pins(scan_text(text, resolve=False, include_pin_cites=True))
+    assert len(pins) == 1
+    assert pins[0].parent_normalized is None
+    assert pins[0].components["unparsed_antecedent"] == "brief"
+
+
+def test_id_chain_after_brief_cite_stays_unresolved():
+    text = (
+        "State v. Abel, 2020 ND 10, ¶ 5. Ae. Br. (Smith) 18, ¶ 28. "
+        "Id. ¶ 29. Id. ¶ 30."
+    )
+    pins = _pins(scan_text(text, resolve=False, include_pin_cites=True))
+    assert len(pins) == 2
+    assert all(p.parent_normalized is None for p in pins)
+    assert all(p.components["unparsed_antecedent"] == "brief" for p in pins)
+
+
+def test_id_after_record_cite_unresolved():
+    text = "State v. Abel, 2020 ND 10, ¶ 5. The court so found (R45:12:¶3). Id."
+    pins = _pins(scan_text(text, resolve=False, include_pin_cites=True))
+    assert len(pins) == 1
+    assert pins[0].parent_normalized is None
+    assert pins[0].components["unparsed_antecedent"] == "record"
+
+
+def test_id_after_transcript_cite_unresolved():
+    text = "State v. Abel, 2020 ND 10, ¶ 5. Tr. 45. Id. at 46."
+    pins = _pins(scan_text(text, resolve=False, include_pin_cites=True))
+    assert len(pins) == 1
+    assert pins[0].parent_normalized is None
+    assert pins[0].components["unparsed_antecedent"] == "transcript"
+
+
+def test_brief_cite_before_the_authority_does_not_block():
+    text = "At. Br. 18, ¶ 28. State v. Abel, 2020 ND 10, ¶ 5. Id. ¶ 6."
+    pins = _pins(scan_text(text, resolve=False, include_pin_cites=True))
+    assert len(pins) == 1
+    assert pins[0].parent_normalized == "2020 ND 10"
+    assert "unparsed_antecedent" not in pins[0].components
+
+
+def test_new_authority_after_brief_id_resolves_again():
+    text = (
+        "State v. Abel, 2020 ND 10, ¶ 5. At. Br. 18, ¶ 28. Id. ¶ 29. "
+        "State v. Baker, 2001 ND 22, ¶ 7. Id. ¶ 8."
+    )
+    pins = _pins(scan_text(text, resolve=False, include_pin_cites=True))
+    assert [p.parent_normalized for p in pins] == [None, "2001 ND 22"]
+
+
+def test_rule_cite_is_not_a_record_cite():
+    """"R" inside a rule abbreviation must not read as a record item."""
+    text = "See N.D.R.Ev. 702. Id."
+    pins = _pins(scan_text(text, resolve=False, include_pin_cites=True))
+    ids = [p for p in pins if p.components.get("shape") == "id"]
+    assert len(ids) == 1
+    assert ids[0].parent_normalized == "N.D.R.Ev. 702"
+
+
+def test_unparsed_antecedent_reaches_legacy_dict():
+    from jetcite.legacy import to_legacy_dict
+
+    text = "State v. Abel, 2020 ND 10, ¶ 5. At. Br. 18, ¶ 28. Id. ¶ 29."
+    pin = _pins(scan_text(text, resolve=False, include_pin_cites=True))[0]
+    entry = to_legacy_dict(pin, Path("/nonexistent"))
+    assert entry["parent_normalized"] is None
+    assert entry["unparsed_antecedent"] == "brief"
+
+
+def test_id_with_section_pin_ignores_intervening_brief_cite():
+    """"Id. § N" names a code section — a brief cannot be its antecedent."""
+    text = (
+        "N.D.C.C. § 59-16.1-15 controls. (Appellant Br. at 16, 17). "
+        "See id. § 59-16.1-02(8)."
+    )
+    pins = _pins(scan_text(text, resolve=False, include_pin_cites=True))
+    ids = [p for p in pins if p.components.get("shape") == "id"]
+    assert len(ids) == 1
+    assert ids[0].parent_normalized == "N.D.C.C. § 59-16.1-15"
+
+
+def test_id_after_colon_form_record_cite_unresolved():
+    text = "Abel v. Baker, 371 N.W.2d 321 (N.D. 1985). He farms (R:37:¶¶1-2). Id. ¶ 2."
+    pins = _pins(scan_text(text, resolve=False, include_pin_cites=True))
+    assert len(pins) == 1
+    assert pins[0].parent_normalized is None
+    assert pins[0].components["unparsed_antecedent"] == "record"

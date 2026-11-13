@@ -295,9 +295,17 @@ consumers see byte-identical output without the flag.
 | `parent_normalized` | `str \| None` | The full cite it refers to; `None` when explicit pin syntax was found but no antecedent resolved (kept as a warning) |
 | `pin_page` / `pin_paragraph` | `str \| None` | The pinpoint the short form carries |
 | `components["shape"]` | `str` | `reporter_pin` (`491 F.3d at 363`), `name_pin` (`Goss at 365`), `id` (`Id. at 78`), or `rule_pin` (`Rule 27(a)`) |
+| `components["unparsed_antecedent"]` | `str` | Set on an `id` left unresolved because a source jetcite does not parse sits between it and the last authority: `brief` (`At. Br. 18, ¶ 28`), `record` (`R45:12`, `Doc. 45`), or `transcript` (`Tr. 45`). Also in the legacy dict as `unparsed_antecedent` |
 
 Short forms inherit their parent's sources and never get their own `~/refs`
 files. Unresolvable bare names are dropped rather than guessed.
+
+An `Id.` resolves to the nearest preceding authority, with four exclusions:
+authorities inside quoted matter; authorities inside an explanatory
+parenthetical — `(quoting ...)`, `(citing ...)` — per Bluebook rule 4.1; non-case
+authorities when the `Id.` carries a page or `¶` pin; and any authority that
+has a brief, record, or transcript cite between it and the `Id.` (unless the
+`Id.` carries a `§` pin, which only a codified provision can answer).
 
 **Rule short forms carry their attribution rung.** A bare `Rule 27(a)` names no
 rule set, so jetcite attributes one by a ladder and records which rung fired in
