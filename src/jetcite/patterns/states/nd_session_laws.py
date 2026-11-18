@@ -31,7 +31,10 @@ from jetcite.patterns import register
 from jetcite.patterns.base import BaseMatcher
 
 _YEAR = r'(1[89]\d\d|20\d\d)'
-_CH = r'[Cc]h(?:s?\.|apters?)\s*(\d{1,4})(?![\d-])'
+# The chapter number must not run on into a dash: "Chapter 40–45, N.D.R.C. 1943" is a
+# chapter of the Revised Code, not chapter 40 of a session.
+_DASH = '‐‑‒–—―−-'
+_CH = rf'[Cc]h(?:s?\.|apters?)\s*(\d{{1,4}})(?![\d{_DASH}])'
 # an act-section pinpoint: ", § 2" / ", sec. 2" / ", §§ 2, 3" (first only)
 _SEC = r'(?:,?\s*(?:§§?|[Ss]ec(?:s?\.|tions?))\s*(\d{1,3})(?![\d-]))?'
 _ND = r'N\.\s?D\.\s?'
@@ -70,43 +73,46 @@ class NDSessionLawMatcher(BaseMatcher):
     """North Dakota Session Laws, reporter-style forms only."""
 
     def find_all(self, text: str) -> list[Citation]:
-        out: list[Citation] = []
-        seen: set[tuple[int, int]] = set()
+        # Every form's matches, then left to right, first come first kept. Order
+        # matters in a run: "Chapter 277 S.L.1935, Chapter 280 S.L.1935" is two
+        # chapter-first cites, and read year-first from the middle it pairs 1935
+        # with chapter 280 by luck and, one step on, 1937 with a chapter of 1939.
+        # Whichever form opens the run governs it.
+        cands = []
+        for m in _YEAR_FIRST.finditer(text):
+            cands.append((m, m.group(1), m.group(3), m.group(4), "spec" if m.group(2) else None))
+        for m in _YEAR_AFTER.finditer(text):
+            cands.append((m, m.group(1), m.group(2), m.group(3), None))
+        for m in _SLND.finditer(text):
+            cands.append((m, m.group(1), m.group(2), m.group(3), None))
+        for m in _CODE.finditer(text):
+            cands.append((m, m.group(1), m.group(3), m.group(4), "sp" if m.group(2) else None))
+        for m in _CODE_YEAR_FIRST.finditer(text):
+            cands.append((m, m.group(1), m.group(2), m.group(3), None))
+        for m in _CH_FIRST.finditer(text):
+            cands.append((m, m.group(2), m.group(1), None, None))
+        cands.sort(key=lambda c: (c[0].start(), -(c[0].end() - c[0].start())))
 
-        def add(m, year, chapter, section, special_form=None):
-            span = (m.start(), m.end())
-            if any(a <= span[0] < b or a < span[1] <= b for a, b in seen):
-                return
-            seen.add(span)
+        out: list[Citation] = []
+        last_end = -1
+        for m, year, chapter, section, special_form in cands:
+            if m.start() < last_end:
+                continue
+            last_end = m.end()
             y, ch = int(year), int(chapter)
             spec_sess = special_form == "spec"
-            normalized = f"{y} N.D. Sess. Laws {'Spec. Sess. ' if spec_sess else ''}ch. {ch}"
             url = session_laws_url(y, special=bool(special_form))
             out.append(Citation(
                 raw_text=m.group(0),
                 cite_type=CitationType.SESSION_LAW,
                 jurisdiction="nd",
-                normalized=normalized,
+                normalized=f"{y} N.D. Sess. Laws {'Spec. Sess. ' if spec_sess else ''}ch. {ch}",
                 components={"year": str(y), "chapter": str(ch), "section": section,
                             "special": bool(special_form)},
                 pinpoint=f"§ {section}" if section else None,
                 sources=[Source("ndlegis", url)] if url else [],
                 position=m.start(),
             ))
-
-        for m in _YEAR_FIRST.finditer(text):
-            add(m, m.group(1), m.group(3), m.group(4), "spec" if m.group(2) else None)
-        for m in _YEAR_AFTER.finditer(text):
-            add(m, m.group(1), m.group(2), m.group(3))
-        for m in _SLND.finditer(text):
-            add(m, m.group(1), m.group(2), m.group(3))
-        for m in _CODE.finditer(text):
-            add(m, m.group(1), m.group(3), m.group(4), "sp" if m.group(2) else None)
-        for m in _CODE_YEAR_FIRST.finditer(text):
-            add(m, m.group(1), m.group(2), m.group(3))
-        for m in _CH_FIRST.finditer(text):
-            add(m, m.group(2), m.group(1), None)
-        out.sort(key=lambda c: c.position)
         return out
 
 

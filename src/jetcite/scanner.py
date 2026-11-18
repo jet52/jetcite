@@ -843,6 +843,23 @@ def _apply_cache(citations: list[Citation], refs_dir: Path) -> None:
             add_local_source(cite, local_path)
 
 
+_STAR_PAGE = re.compile(r"\[\*{1,2}\d{1,4}\]")
+
+
+def _mask_star_pages(text: str) -> str:
+    """Star-page markers ("[*442]", "[**335]") as spaces of the same width."""
+    return _STAR_PAGE.sub(lambda m: " " * len(m.group()), text)
+
+
+def _restore_printed(citations: list[Citation], printed: str) -> list[Citation]:
+    """Give each citation the raw text as printed, where masking changed it."""
+    for c in citations:
+        seg = printed[c.position:c.position + len(c.raw_text)]
+        if seg != c.raw_text and _mask_star_pages(seg) == c.raw_text:
+            c.raw_text = seg
+    return citations
+
+
 def scan_text(
     text: str,
     refs_dir: Path | None = None,
@@ -889,6 +906,13 @@ def scan_text(
     # parallel/antecedent detectors below see. Idempotent with the same call
     # inside each matcher's find_all.
     text = preprocess_document_text(text)
+    # A star-page marker printed inside a citation ("447 [*442] N.W.2d 286",
+    # "20 N. Y. [*495] 473", "2012 [*5] ND 15") is the reporter's page break, not
+    # part of the cite. Matchers see it as blank space of the same width, so the
+    # cite matches and every position still indexes the printed text; raw_text is
+    # then read back from the printed text, marker included.
+    printed = text
+    text = _mask_star_pages(text)
 
     all_citations: list[Citation] = []
     repeats: list[Citation] = []
@@ -982,9 +1006,9 @@ def scan_text(
             antecedents = sorted(occurrences + linked, key=lambda c: c.position)
         pins = _resolve_pin_cites(pin_candidates, antecedents, text)
         _inherit_pin_sources(pins, antecedents)
-        return sorted(occurrences + pins, key=lambda c: c.position)
+        return _restore_printed(sorted(occurrences + pins, key=lambda c: c.position), printed)
 
-    return occurrences
+    return _restore_printed(occurrences, printed)
 
 
 def lookup(
