@@ -1,6 +1,6 @@
 ---
 name: jetcite
-version: 2.17.0
+version: 2.18.0
 description: Parse American legal citations from text and generate URLs to official government sources.
 ---
 
@@ -56,7 +56,7 @@ citations = scan_text(document_text)
 - **Federal:** U.S. Constitution, U.S.C., C.F.R., federal rules (FRCP, FRE, FRAP, etc.), all federal case reporters
 - **Regional reporters:** N.W.2d, A.3d, S.E.2d, So.3d, S.W.3d, N.E.3d, P.3d, plus state-specific reporters
 - **Medium-neutral:** 21 jurisdictions (AR, CO, IL, MT, ND, OH, OK, SD, UT, WI, WY, etc.)
-- **North Dakota (deep):** NDCC, NDAC, ND Constitution, 21 court rule sets, ND Reports
+- **North Dakota (deep):** NDCC, NDAC, ND Constitution, 21 court rule sets, ND Reports, ND Session Laws
 
 ## Output format (JSON)
 

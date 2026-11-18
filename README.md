@@ -367,6 +367,7 @@ HTML and PDF content is automatically converted to markdown. Original downloads 
 - N.D.C.C. sections and chapters (with decimal titles like 12.1)
 - N.D.A.C. sections and chapters
 - N.D. Constitution
+- N.D. Session Laws, reporter-style forms (`2019 N.D. Sess. Laws ch. 404`, `S.L. 2019, ch. 404`); cite type `session_law`
 - All 21 ND court rule sets
 - North Dakota Reports (N.D.) — volumes 1-79, 1890-1953
 - Medium-neutral citations (1997-present)
