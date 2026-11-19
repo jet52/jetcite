@@ -51,7 +51,7 @@ class TestScanIntegration:
                           resolve=False)
         us = [c for c in cites if c.normalized == "347 U.S. 483"]
         assert us
-        entry = to_legacy_dict(us[0], tmp_path)
+        entry = to_legacy_dict(us[0])
         assert entry["official_pdf_url"].endswith("usrep347483.pdf")
         # The fetchable url is unchanged — still the Justia page.
         assert "supreme.justia.com" in entry["url"]

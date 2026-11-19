@@ -80,21 +80,6 @@ class TestRepeatSources:
         rep = next(c for c in cites if c.is_repeat and c.pinpoint == "¶ 12")
         assert [s.url for s in rep.sources] == [s.url for s in primary.sources]
 
-    def test_repeat_inherits_local_cache_source(self, tmp_path):
-        refs = tmp_path / "refs"
-        opin = refs / "opin" / "ND" / "2024"
-        opin.mkdir(parents=True)
-        (opin / "2024ND156.md").write_text("[¶ 12] Cited paragraph.")
-        cites = _scan(refs_dir=refs)
-        rep = next(c for c in cites if c.is_repeat and c.pinpoint == "¶ 12")
-        assert any(s.name == "local" for s in rep.sources)
-
-    def test_repeat_never_maps_to_cache_path(self):
-        from jetcite.cache import citation_path
-        cites = _scan()
-        rep = next(c for c in cites if c.is_repeat)
-        assert citation_path(rep) is None
-
 
 class TestRepeatParallels:
     TEXT = (
@@ -119,21 +104,20 @@ class TestRepeatParallels:
 class TestLegacyDict:
     def test_position_emitted(self, tmp_path):
         cites = _scan()
-        entries = [to_legacy_dict(c, tmp_path) for c in cites]
+        entries = [to_legacy_dict(c) for c in cites]
         assert all(isinstance(e["position"], int) for e in entries)
 
     def test_repeat_entry_fields(self, tmp_path):
         cites = _scan()
         rep = next(c for c in cites if c.is_repeat and c.pinpoint == "¶ 12")
-        entry = to_legacy_dict(rep, tmp_path)
+        entry = to_legacy_dict(rep)
         assert entry["is_repeat"] is True
         assert entry["parent_normalized"] == "2024 ND 156"
-        assert entry["local_path"] is None
         assert entry["cite_type"] == "neutral_cite"
 
     def test_add_parallel_info_repeat_safe(self, tmp_path):
         cites = _scan(TestRepeatParallels.TEXT)
-        entries = [to_legacy_dict(c, tmp_path) for c in cites]
+        entries = [to_legacy_dict(c) for c in cites]
         add_parallel_info(entries, cites)
         rep_entry = next(e for e in entries if e.get("is_repeat")
                          and e["normalized"] == "2024 ND 156")
@@ -246,7 +230,7 @@ class TestProvisionRepeats:
     def test_legacy_dict_repeat_fields(self, tmp_path):
         cites = _scan(PROVISIONS)
         rep = _fulls_of(cites, "N.D.R.Ev. 702")[2]
-        d = to_legacy_dict(rep, tmp_path)
+        d = to_legacy_dict(rep)
         assert d["is_repeat"] is True
         assert d["parent_normalized"] == "N.D.R.Ev. 702"
         assert d["pinpoint"] == "(b)"

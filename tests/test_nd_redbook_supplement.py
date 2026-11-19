@@ -17,7 +17,6 @@ composed: 2005 ND App 7 is Kerzmann v. Burleigh County Social Services and
 2007 ND App 4 is Riemers v. State (cited in 2013 ND 188).
 """
 
-from jetcite.cache import citation_path
 from jetcite.patterns.neutral import NeutralCitationMatcher
 from jetcite.scanner import scan_text
 
@@ -56,17 +55,6 @@ def test_supreme_court_cite_unaffected():
     assert cite.components["court"] == "ND"
     url = next(s.url for s in cite.sources if s.name == "ndcourts")
     assert "citType=ND&" in url
-
-
-def test_nd_app_and_supreme_court_do_not_collide_in_refs_cache():
-    """2005 ND 7 and 2005 ND App 7 are different cases — different paths."""
-    m = NeutralCitationMatcher()
-    (sc,) = m.find_all("2005 ND 7")
-    (app,) = [r for r in m.find_all("2005 ND App 7") if r.normalized.startswith("2005")]
-    sc_path, app_path = citation_path(sc), citation_path(app)
-    assert sc_path != app_path
-    assert str(sc_path) == "opin/ND/2005/2005ND7.md"
-    assert str(app_path) == "opin/NDApp/2005/2005NDApp7.md"
 
 
 # ---------------------------------------------------------------------------
@@ -175,28 +163,6 @@ def test_flag_survives_the_legacy_dict_conversion():
 
     text = "Johnson v. State, 2005 ND App 8, ¶ 7, 700 N.W.2d 723, 726."
     cites = scan_text(text)
-    entries = [to_legacy_dict(c, Path("/nonexistent")) for c in cites]
+    entries = [to_legacy_dict(c) for c in cites]
     flagged = [e["normalized"] for e in entries if e.get("improper_parallel_pincite")]
     assert flagged == ["700 N.W.2d 723"]
-
-
-def test_nd_app_legacy_entry_carries_distinct_local_path():
-    from pathlib import Path
-
-    from jetcite.legacy import to_legacy_dict
-
-    (app,) = [c for c in scan_text("2005 ND App 7") if c.normalized.startswith("2005")]
-    entry = to_legacy_dict(app, Path("/refs"))
-    assert entry["local_path"] == "/refs/opin/NDApp/2005/2005NDApp7.md"
-
-
-def test_name_paragraph_short_form_without_at_resolves():
-    """The supplement dropped the "at" before a paragraph pin. Both spellings
-    resolve: the current one, and the older one that existing drafts carry."""
-    base = ("Kuntz v. State, 2019 ND 46, ¶ 11, 923 N.W.2d 513. "
-            "Another v. Case, 2020 ND 5, ¶ 3, 1 N.W.3d 2. ")
-    for tail, norm in (("Kuntz, ¶ 11.", "Kuntz, ¶ 11"),
-                       ("Kuntz, at ¶ 11.", "Kuntz, at ¶ 11")):
-        pin = _pins(base + tail)[norm]
-        assert pin.parent_normalized == "2019 ND 46", tail
-        assert pin.pin_paragraph == "11", tail

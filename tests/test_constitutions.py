@@ -41,7 +41,7 @@ def test_legacy_dict_carries_avalon_url(tmp_path):
     from jetcite.legacy import to_legacy_dict
     m = USConstitutionMatcher()
     cite = m.find_all("U.S. Const. art. I, § 8")[0]
-    entry = to_legacy_dict(cite, tmp_path)
+    entry = to_legacy_dict(cite)
     assert entry["avalon_url"] == (
         "https://avalon.law.yale.edu/18th_century/art1.asp#1sec8")
     assert "constitution.congress.gov" in entry["url"]

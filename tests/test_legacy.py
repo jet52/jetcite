@@ -257,36 +257,17 @@ def test_hint_court_rule():
 
 def test_to_legacy_dict_fields(tmp_path):
     cite = _nd_neutral()
-    d = to_legacy_dict(cite, tmp_path)
+    d = to_legacy_dict(cite)
     assert d["cite_text"] == "2024 ND 156"
     assert d["cite_type"] == "neutral_cite"
     assert d["normalized"] == "2024 ND 156"
     assert d["jurisdiction"] == "nd"
     assert d["url"] is not None
     assert d["search_hint"] == "2024ND156"
-    assert d["local_path"] is not None
-    assert d["local_exists"] is False
-
-
-def test_to_legacy_dict_local_exists(tmp_path):
-    cite = _nd_neutral()
-    # Pre-populate the cache
-    path = tmp_path / "opin/ND/2024/2024ND156.md"
-    path.parent.mkdir(parents=True)
-    path.write_text("opinion")
-
-    d = to_legacy_dict(cite, tmp_path)
-    assert d["local_exists"] is True
-    assert d["local_path"] == str(path)
+    assert "local_path" not in d and "local_exists" not in d
 
 
 # ── primary_url ──────────────────────────────────────────────────
-
-
-def test_primary_url_skips_local():
-    cite = _nd_neutral()
-    cite.sources.insert(0, Source("local", "file:///tmp/test.md"))
-    assert primary_url(cite) == "https://example.com/2024ND156"
 
 
 def test_primary_url_no_sources():
@@ -305,7 +286,7 @@ def test_parallel_info(tmp_path):
     cite1.parallel_cites = ["585 N.W.2d 123"]
     cite2 = _nw2d()
 
-    entries = [to_legacy_dict(cite1, tmp_path), to_legacy_dict(cite2, tmp_path)]
+    entries = [to_legacy_dict(cite1), to_legacy_dict(cite2)]
     add_parallel_info(entries, [cite1, cite2])
 
     assert entries[0].get("parallel_cite") == "585 N.W.2d 123"
@@ -319,7 +300,7 @@ def test_suspected_parallel_is_recorded_but_not_asserted(tmp_path):
     cite2 = _nw2d()
     cite2.suspected_parallel_cites = [cite1.normalized]
 
-    entries = [to_legacy_dict(cite1, tmp_path), to_legacy_dict(cite2, tmp_path)]
+    entries = [to_legacy_dict(cite1), to_legacy_dict(cite2)]
     add_parallel_info(entries, [cite1, cite2])
 
     assert entries[0]["suspected_parallel_cites"] == ["585 N.W.2d 123"]

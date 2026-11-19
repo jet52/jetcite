@@ -297,8 +297,7 @@ consumers see byte-identical output without the flag.
 | `components["shape"]` | `str` | `reporter_pin` (`491 F.3d at 363`), `name_pin` (`Goss at 365`), `id` (`Id. at 78`), or `rule_pin` (`Rule 27(a)`) |
 | `components["unparsed_antecedent"]` | `str` | Set on an `id` left unresolved because a source jetcite does not parse sits between it and the last authority: `brief` (`At. Br. 18, ¶ 28`), `record` (`R45:12`, `Doc. 45`), or `transcript` (`Tr. 45`). Also in the legacy dict as `unparsed_antecedent` |
 
-Short forms inherit their parent's sources and never get their own `~/refs`
-files. Unresolvable bare names are dropped rather than guessed.
+Short forms inherit their parent's sources. Unresolvable bare names are dropped rather than guessed.
 
 An `Id.` resolves to the nearest preceding authority, with four exclusions:
 authorities inside quoted matter; authorities inside an explanatory
@@ -325,27 +324,15 @@ whose set is attributed but which no full cite in the document matches gets a
 attribution is explicit or uncontradicted; a `marker` attribution that conflicts
 with the document's own full cites is dropped instead.
 
-## Caching
+## Fetching text
 
-jetcite includes a local reference cache (`~/refs/`) that stores fetched citation content for offline access and faster lookups.
-
-```bash
-# Fetch and cache a citation
-jetcite --fetch "2024 ND 156" --refs-dir ~/refs
-
-# Check local cache first, then fall back to web
-jetcite --refs-dir ~/refs "2024 ND 156"
-jetcite --scan document.md --refs-dir ~/refs
-```
-
-Content-type-centric layout:
-- `opin/{reporter}/` — all opinions (ND/, NW2d/, US/, F3d/, P2d/, etc.); North Dakota Reports (`N.D.`) caches under `NDReports/`, because `ND/` is the neutral-citation tree
-- `statute/{code}/` — statutes (NDCC/, USC/)
-- `reg/{code}/` — regulations (NDAC/, CFR/)
-- `cnst/{jurisdiction}/` — constitutions (ND/, US/)
-- `rule/{set}/` — court rules (ndrcivp/, FRCP/, FRE/, etc.)
-
-HTML and PDF content is automatically converted to markdown. Original downloads are preserved as dot-prefixed siblings (e.g., `.351.orig.html`). Metadata sidecars (`.meta.json`) track source URL, fetch time, content hash, ETag, and staleness.
+`jetcite --fetch "392 U.S. 1"` prints the text of the cited authority from its
+online source; `jetcite.fetch.fetch_text(citation)` returns it in memory.
+Nothing is written to disk. jetcite kept a local reference cache (`~/refs/`)
+through 2.x; 3.0 removed it, along with `--refs-dir`, the `cache` subcommand,
+the `refs_dir` argument of `scan_text` / `lookup` / `to_legacy_dict`, and the
+`local_path`, `local_exists` and `preferred` fields of the legacy dict. For
+North Dakota authority, use the ndlaw MCP server (`https://ndlaw.org/mcp`).
 
 ## Supported Citations
 

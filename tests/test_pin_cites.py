@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-from jetcite.cache import citation_path
 from jetcite.legacy import CASE_TYPES, PIN_CITE_TYPE, legacy_cite_type
 from jetcite.patterns.pin_cites import PinCiteMatcher
 from jetcite.scanner import scan_text
@@ -196,11 +195,10 @@ def test_rule_pin_legacy_dict():
     text = ("A motion under N.D.R.Civ.P. 60(b) must be timely. "
             "Under Rule 60(b), relief also requires diligence.")
     pin = _pins(scan_text(text, include_pin_cites=True))[0]
-    entry = to_legacy_dict(pin, Path("/tmp/refs"))
+    entry = to_legacy_dict(pin)
     assert entry["cite_type"] == PIN_CITE_TYPE
     assert entry["parent_normalized"] == "N.D.R.Civ.P. 60"
     assert entry["pinpoint"] == "(b)"
-    assert entry["local_path"] is None
 
 
 # ── Matcher unit tests: shape 1 (reporter pins) ──────────────────────────────
@@ -635,16 +633,15 @@ def test_fixture_brief_end_to_end():
     assert all(p.parent_normalized == "2024 ND 907" for p in id_pins)
 
 
-# ── Legacy / cache invariants ────────────────────────────────────────────────
+# ── Legacy invariants ────────────────────────────────────────────────
 
 
-def test_pin_cite_legacy_type_and_cache():
+def test_pin_cite_legacy_type():
     text = "Goss, 491 F.3d 355 (8th Cir. 2007). Id. at 359."
     citations = scan_text(text, include_pin_cites=True)
     pin = _pins(citations)[0]
     assert legacy_cite_type(pin) == PIN_CITE_TYPE
     assert PIN_CITE_TYPE not in CASE_TYPES
-    assert citation_path(pin) is None
 
 
 def test_to_dict_pin_keys_only_on_pins():
@@ -827,7 +824,7 @@ class TestBareIdPinpointInheritance:
         text = "State v. Gonzalez, 2024 ND 4, ¶ 6, 1 N.W.3d 919. Id."
         cites = scan_text(text, resolve=False, include_pin_cites=True)
         pin = next(c for c in cites if c.is_pin_cite)
-        entry = to_legacy_dict(pin, tmp_path)
+        entry = to_legacy_dict(pin)
         assert entry["pin_paragraph"] == "6"
         assert entry["pinpoint_inherited"] is True
 
@@ -1020,7 +1017,7 @@ def test_unparsed_antecedent_reaches_legacy_dict():
 
     text = "State v. Abel, 2020 ND 10, ¶ 5. At. Br. 18, ¶ 28. Id. ¶ 29."
     pin = _pins(scan_text(text, resolve=False, include_pin_cites=True))[0]
-    entry = to_legacy_dict(pin, Path("/nonexistent"))
+    entry = to_legacy_dict(pin)
     assert entry["parent_normalized"] is None
     assert entry["unparsed_antecedent"] == "brief"
 

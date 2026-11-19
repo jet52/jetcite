@@ -1,4 +1,4 @@
-"""Tests for source-specific content extractors and the fetch_and_cache router."""
+"""Tests for source-specific content extractors and the fetch_text router."""
 
 import json
 from pathlib import Path
@@ -6,7 +6,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from jetcite.cache import fetch_and_cache, cache_content, _get_extractor
+from jetcite.fetch import fetch_text, _get_extractor
 from jetcite.models import Citation, CitationType, Source
 from jetcite.sources.courtlistener import (
     fetch_courtlistener,
@@ -571,10 +571,10 @@ def test_fetch_justia_http_error():
     assert content is None
 
 
-# ── fetch_and_cache router integration ────────────────────────────
+# ── fetch_text router integration ────────────────────────────
 
 
-def test_fetch_routes_to_courtlistener(tmp_path):
+def test_fetch_routes_to_courtlistener():
     """CourtListener URL should use the CL extractor, not generic."""
     cite = _nw2d_cite()
 
@@ -591,16 +591,18 @@ def test_fetch_routes_to_courtlistener(tmp_path):
         "jetcite.sources.courtlistener.fetch_courtlistener",
         return_value=(mock_content, {"case_name": "State v. Test"}, "<p>html</p>"),
     ) as mock_cl:
-        path = fetch_and_cache(cite, refs_dir=tmp_path)
+        got = fetch_text(cite)
 
     mock_cl.assert_called_once()
-    assert path is not None
-    content = path.read_text()
+    assert got is not None
+    assert got.source_url.startswith("https://www.courtlistener.com/")
+    assert got.original == b"<p>html</p>"
+    content = got.text
     assert "# State v. Test" in content
     assert "Test opinion body." in content
 
 
-def test_fetch_routes_to_justia(tmp_path):
+def test_fetch_routes_to_justia():
     """Justia URL should use the Justia extractor."""
     cite = _us_reports_cite()
 
@@ -610,14 +612,14 @@ def test_fetch_routes_to_justia(tmp_path):
         "jetcite.sources.justia.fetch_justia",
         return_value=(mock_content, {"case_name": "Terry v. Ohio"}, "<p>html</p>"),
     ) as mock_justia:
-        path = fetch_and_cache(cite, refs_dir=tmp_path)
+        got = fetch_text(cite)
 
     mock_justia.assert_called_once()
-    assert path is not None
-    assert "Terry v. Ohio" in path.read_text()
+    assert got is not None
+    assert "Terry v. Ohio" in got.text
 
 
-def test_fetch_falls_back_to_generic(tmp_path):
+def test_fetch_falls_back_to_generic():
     """Unknown host should fall back to generic markdownify."""
     cite = _govinfo_cite()
 
@@ -628,116 +630,47 @@ def test_fetch_falls_back_to_generic(tmp_path):
     mock_resp.headers = {"content-type": "text/html"}
     mock_resp.raise_for_status = MagicMock()
 
-    with patch("jetcite.cache.httpx.get", return_value=mock_resp):
-        path = fetch_and_cache(cite, refs_dir=tmp_path)
+    with patch("jetcite.fetch.httpx.get", return_value=mock_resp):
+        got = fetch_text(cite)
 
-    assert path is not None
-    content = path.read_text()
+    assert got is not None
+    content = got.text
     assert "1983" in content
     assert "<html>" not in content
 
 
-def test_fetch_tries_next_source_on_extractor_failure(tmp_path):
-    """If the specific extractor returns None, fall back to generic."""
+def test_extractor_failure_never_falls_back_to_the_same_host():
+    """A host with its own extractor is not fetched generically.
+
+    ndcourts.gov's citation search answers 200 with a results page when it
+    finds no opinion; the generic fallback used to keep that page as the
+    opinion text (three such files reached a refs tree, 2026-11).
+    """
     cite = Citation(
-        raw_text="585 N.W.2d 123",
+        raw_text="1977 ND 439",
         cite_type=CitationType.CASE,
-        jurisdiction="us",
-        normalized="585 N.W.2d 123",
-        components={"volume": "585", "reporter": "N.W.2d", "page": "123"},
+        jurisdiction="nd",
+        normalized="1977 ND 439",
+        components={"year": "1977", "number": "439"},
         sources=[
-            Source("courtlistener", "https://www.courtlistener.com/c/N.W.%202d/585/123/"),
+            Source("ndcourts", "https://www.ndcourts.gov/supreme-court/opinions?cit1=1977&citType=ND&cit2=439"),
         ],
     )
-
-    # CL extractor fails
-    with patch(
-        "jetcite.sources.courtlistener.fetch_courtlistener",
-        return_value=(None, {}, None),
-    ):
-        html = "<html><body><p>Fallback content</p></body></html>"
-        mock_resp = MagicMock()
-        mock_resp.text = html
-        mock_resp.content = html.encode("utf-8")
-        mock_resp.headers = {"content-type": "text/html"}
-        mock_resp.raise_for_status = MagicMock()
-
-        with patch("jetcite.cache.httpx.get", return_value=mock_resp):
-            path = fetch_and_cache(cite, refs_dir=tmp_path)
-
-    assert path is not None
-    content = path.read_text()
-    assert "Fallback" in content
+    with patch("jetcite.sources.ndcourts.fetch_ndcourts",
+               return_value=(None, {}, None)):
+        with patch("jetcite.fetch.httpx.get") as generic:
+            assert fetch_text(cite) is None
+    generic.assert_not_called()
 
 
-# ── CLI cache subcommand ─────────────────────────────────────────
-
-
-def test_cli_cache_dryrun(tmp_path):
-    """jetcite cache --dry-run should list citations without fetching."""
-    from click.testing import CliRunner
-    from jetcite.cli import main
-
-    runner = CliRunner()
-    result = runner.invoke(main, [
-        "cache", "585 N.W.2d 123",
-        "--refs-dir", str(tmp_path),
-        "--dry-run",
-    ])
-    assert result.exit_code == 0
-    assert "fetch" in result.output
-    assert "N.W." in result.output  # normalized form: 585 N.W.2d 123
-
-
-def test_cli_cache_status_missing(tmp_path):
-    """jetcite cache --status should show 'missing' for uncached citations."""
-    from click.testing import CliRunner
-    from jetcite.cli import main
-
-    runner = CliRunner()
-    result = runner.invoke(main, [
-        "cache", "585 N.W.2d 123",
-        "--refs-dir", str(tmp_path),
-        "--status",
-    ])
-    assert result.exit_code == 0
-    assert "missing" in result.output
-
-
-def test_cli_cache_status_cached(tmp_path):
-    """jetcite cache --status should show 'cached' for cached citations."""
-    from click.testing import CliRunner
-    from jetcite.cli import main
-    from jetcite.scanner import lookup
-
-    # Pre-cache
-    cite = lookup("585 N.W.2d 123")
-    cache_content(cite, "cached content", tmp_path,
-                  source_url="https://example.com")
-
-    runner = CliRunner()
-    result = runner.invoke(main, [
-        "cache", "585 N.W.2d 123",
-        "--refs-dir", str(tmp_path),
-        "--status",
-    ])
-    assert result.exit_code == 0
-    assert "cached" in result.output
-
-
-def test_cli_cache_file_dryrun(tmp_path):
-    """jetcite cache --file --dry-run should scan a document."""
-    from click.testing import CliRunner
-    from jetcite.cli import main
-
-    fixture = Path(__file__).parent / "fixtures" / "sample_opinion.txt"
-    runner = CliRunner()
-    result = runner.invoke(main, [
-        "cache", "--file", str(fixture),
-        "--refs-dir", str(tmp_path),
-        "--dry-run",
-    ])
-    assert result.exit_code == 0
-    # Should list multiple citations
-    assert "fetch" in result.output
-    assert result.output.count("fetch") > 5
+def test_generic_fetch_skips_link_only_hosts():
+    """An extractor miss must not fall through to a link-only source."""
+    cite = _us_reports_cite()
+    cite.sources.append(Source("official_pdf", "https://tile.loc.gov/storage-services/x.pdf"))
+    with patch("jetcite.sources.justia.fetch_justia",
+               return_value=(None, {}, None)), \
+         patch("jetcite.sources.courtlistener.fetch_courtlistener",
+               return_value=(None, {}, None)), \
+         patch("jetcite.fetch.httpx.get") as generic:
+        assert fetch_text(cite) is None
+    generic.assert_not_called()
