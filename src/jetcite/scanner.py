@@ -853,10 +853,29 @@ def _mask_star_pages(text: str) -> str:
 
 def _restore_printed(citations: list[Citation], printed: str) -> list[Citation]:
     """Give each citation the raw text as printed, where masking changed it."""
+    masked = None
     for c in citations:
         seg = printed[c.position:c.position + len(c.raw_text)]
-        if seg != c.raw_text and _mask_star_pages(seg) == c.raw_text:
+        if seg == c.raw_text:
+            continue
+        if _mask_star_pages(seg) == c.raw_text:
             c.raw_text = seg
+            continue
+        # `position` is not always the first character of raw_text (a neutral
+        # cite's position is where its match began, which can sit a few
+        # characters either side of the text it keeps). Where the masked run
+        # of spaces is still in raw_text, find that text in the masked
+        # document near the position and read the printed characters there.
+        if "    " not in c.raw_text:
+            continue
+        if masked is None:
+            masked = _mask_star_pages(printed)
+        lo = max(0, c.position - len(c.raw_text) - 40)
+        i = masked.find(c.raw_text, lo, c.position + len(c.raw_text) + 40)
+        if i >= 0 and masked.find(c.raw_text, i + 1, c.position + len(c.raw_text) + 40) < 0:
+            seg = printed[i:i + len(c.raw_text)]
+            if seg != c.raw_text and _STAR_PAGE.search(seg):
+                c.raw_text = seg
     return citations
 
 
