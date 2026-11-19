@@ -31,9 +31,11 @@ def test_forms(text, norm, section):
 
 
 @pytest.mark.parametrize("text", [
-    "chapter 67 of the Session Laws of 1897",          # prose: names no state
-    "Laws of 1907, chapter 58",
     "1905 Minn. Laws ch. 34",
+    "Minn. Laws 1905, ch. 34",
+    "Comp. Laws 1913, c. 5",                           # a compilation, not a session
+    "1925 Supplement, Sec. 2202",                      # "c." is not the tail of "Sec."
+    "chapter 279, Laws of 1833",                       # before Dakota Territory existed
     "N.D.C.C. ch. 28-32",
     "2019 ND 404",
     "S.L. 2019",                                       # no chapter
@@ -82,3 +84,80 @@ def test_a_code_chapter_after_the_cite_is_not_its_chapter():
     cs = M.find_all("Chapter 174, S.L. 1937, Chapter 40–45, N.D.R.C. 1943, authorizes cities")
     assert [(c.components["year"], c.components["chapter"]) for c in cs] == [("1937", "174")]
     assert M.find_all("S.L. 1937, Chapter 40-45") == []
+
+
+# ---- prose forms: no state named --------------------------------------------
+
+@pytest.mark.parametrize("text, norms", [
+    ("chapter 67 of the Session Laws of 1897", ["1897 N.D. Sess. Laws ch. 67"]),
+    ("Laws of 1907, chapter 58", ["1907 N.D. Sess. Laws ch. 58"]),
+    ("the statute (chapter 189, Laws 1907) under which", ["1907 N.D. Sess. Laws ch. 189"]),
+    ("section 75, c. 62, Laws 1890) reads", ["1890 N.D. Sess. Laws ch. 62"]),
+    ("See Laws 1919, c. 88) provide", ["1919 N.D. Sess. Laws ch. 88"]),
+    ("Sess. Laws 1923, c. 215.", ["1923 N.D. Sess. Laws ch. 215"]),
+    ("Laws 1887, p. 39, c. 11", ["1887 N.D. Sess. Laws ch. 11"]),
+    ("chapter 223, Session Laws of North Dakota for the year 1919, relating",
+     ["1919 N.D. Sess. Laws ch. 223"]),
+    ("Chapter 357, Session Laws of North Dakota for 1961, was", ["1961 N.D. Sess. Laws ch. 357"]),
+    ("2009 Sess. Laws ch. 637", ["2009 N.D. Sess. Laws ch. 637"]),
+    ("N.D. Session Laws 1935, ch. 174", ["1935 N.D. Sess. Laws ch. 174"]),
+    # a list is one citation per chapter, and the next list is not read backwards
+    ("chapters 91 and 93 of the Laws of 1921, chapters 179 and 299 of the Laws of 1923",
+     ["1921 N.D. Sess. Laws ch. 91", "1921 N.D. Sess. Laws ch. 93",
+      "1923 N.D. Sess. Laws ch. 179", "1923 N.D. Sess. Laws ch. 299"]),
+    # "Laws 1889" in prose is the last territorial session
+    ("when chapter 93, Laws 1889, was enacted", ["1889 Dakota Terr. Sess. Laws ch. 93"]),
+])
+def test_prose_forms(text, norms):
+    got = M.find_all(text)
+    assert [c.normalized for c in got] == norms
+    assert all(c.components["form"] == "prose" for c in got) or text.startswith("N.D.")
+
+
+def test_prose_section_pinpoint_and_reporter_form_flag():
+    (c,) = M.find_all("Laws 1931, c. 251, § 2. The plaintiff")
+    assert (c.normalized, c.pinpoint, c.components["form"]) == ("1931 N.D. Sess. Laws ch. 251", "§ 2", "prose")
+    (c,) = M.find_all("2019 N.D. Sess. Laws ch. 404")
+    assert c.components["form"] == "reporter" and c.components["territorial"] is False
+
+
+@pytest.mark.parametrize("text", [
+    "under the Minnesota workmen's compensation statute (Laws 1921, c. 82, § 15)",
+    "section 6036, Revised Codes Mont. 1921, as amended by Laws 1923, c. 9, analogous",
+    "In 1907 the Legislature of Oregon enacted a comprehensive law, chapter 226, Laws 1907, making",
+    "the hawkers' act of 1889 of that state (Laws 1889, c. 298) was held valid",
+    "Section 18 of chapter 209, Laws of 1907 of Washington, being their primary law",
+    "Section 21, c. 89, Laws 1927 of the state of Montana, which",
+])
+def test_prose_form_of_another_jurisdiction_is_refused(text):
+    assert M.find_all(text) == []
+
+
+@pytest.mark.parametrize("text, norm", [
+    # a foreign CASE beside a North Dakota statute
+    ("Riehl v. San Jose, 101 Cal. 442, 35 Pac. 1013. The question is whether article 18 of "
+     "chapter 62 of the Laws of 1905 is valid", "1905 N.D. Sess. Laws ch. 62"),
+    ("Long v. Culp, 14 Kan. 412. The first paragraph in subdivision (g), Section 37, "
+     "Chapter 192, Laws 1919, was", "1919 N.D. Sess. Laws ch. 192"),
+    # the state named is in the sentence before
+    ("charges were pending against him in Minnesota. The carrying of concealed weapons is "
+     "made a felony. Chapter 83, Laws of 1915.", "1915 N.D. Sess. Laws ch. 83"),
+    # North Dakota named last, or in the citation itself, or straight after it
+    ("found in Kansas, Minnesota, Iowa, and in North Dakota since the passage of chapter 132, "
+     "Laws 1890, and", "1890 N.D. Sess. Laws ch. 132"),
+    ("the South Dakota law was identical with Section 30, ch. 126, Laws of North Dakota 1897, which",
+     "1897 N.D. Sess. Laws ch. 126"),
+    ("Lincoln, Neb., for respondents, declaring Chapter 303 of the Session Laws of 1955 of North "
+     "Dakota unconstitutional", "1955 N.D. Sess. Laws ch. 303"),
+    # the federal Constitution or a federal act nearby is not another state's laws
+    ("the Fourteenth Amendment to the Constitution of the United States by chapter 179, Laws 1917 "
+     "(sections 5941a1", "1917 N.D. Sess. Laws ch. 179"),
+])
+def test_prose_form_kept_beside_a_foreign_name(text, norm):
+    assert [c.normalized for c in M.find_all(text)] == [norm]
+
+
+def test_prose_positions_index_the_text():
+    text = "as amended by chapter 96, Session Laws 1969. The Board"
+    (c,) = M.find_all(text)
+    assert text[c.position:c.position + len(c.raw_text)] == c.raw_text == "chapter 96, Session Laws 1969"
