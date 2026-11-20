@@ -19,6 +19,7 @@ The PROSE forms name no state:
     Laws 1925, c. 169  /  Laws of 1907, chapter 58  /  Sess. Laws 1923, c. 215
     chapters 91 and 93 of the Laws of 1921     (one citation per chapter)
     2009 Sess. Laws ch. 637
+    chapter 240 of the 1937 Session Laws
 
 They are read as North Dakota's (or, through 1889, Dakota Territory's) unless
 the text just before them is speaking of another jurisdiction: see
@@ -94,6 +95,14 @@ _P_CH_FIRST = re.compile(
 _P_LAWS_FIRST = re.compile(
     rf'(?<![\w.]){_PLAWS}\s*(?:of\s+)?{_YEAR},?\s*(?:p\.\s*\d+,\s*)?{_PCH_WORD}\s*({_PNUM})'
     rf'(?!(?:\s+and\s+\d+|\s*,\s*\d+)*\s*,?\s*(?:of\s+)?(?:the\s+)?{_PLAWS})' + _SEC)
+# chapter 240 of the 1937 Session Laws | Chapter 22, § 6, of the 1973 Session Laws
+# chapter 14 of the 1944 Special Session Laws | chapters 154 and 161 of the 1949 Session Laws
+# Without this form a run of them was read year-first from the middle
+# ("... the 1937 Session Laws, chapter 227 of the 1939 Session Laws" as 1937 ch. 227).
+_P_CH_YEAR_MID = re.compile(
+    rf'{_PCH_WORD}\s*{_PLIST}(?:,?\s*(?:§§?|[Ss]ec(?:s?\.|tions?))\s*(\d{{1,3}})(?![\d-]))?,?\s*'
+    rf'(?:of|in)\s+(?:the\s+)?{_YEAR}\s+(?:N\.\s?D\.\s?|North\s+Dakota\s+)?'
+    rf'(?:Session|Sess\.|Special\s+Session|Spec\.\s?Sess\.)\s+Laws(?![A-Za-z])')
 # 2009 Sess. Laws ch. 637 | 1935 Session Laws, ch. 174
 _P_YEAR_FIRST = re.compile(
     rf'(?<![\d-]){_YEAR}\s+(?:Session|Sess\.)\s+Laws?,?\s*{_PCH_WORD}\s*({_PNUM})' + _SEC)
@@ -211,6 +220,10 @@ class NDSessionLawMatcher(BaseMatcher):
         for m in _P_CH_FIRST.finditer(text):
             for ch in re.findall(r'\d+', m.group(1)):
                 cands.append((m, m.group(2), ch, None, "prose"))
+        for m in _P_CH_YEAR_MID.finditer(text):
+            chs = re.findall(r'\d+', m.group(1))
+            for ch in chs:
+                cands.append((m, m.group(3), ch, m.group(2) if len(chs) == 1 else None, "prose"))
         for m in _P_LAWS_FIRST.finditer(text):
             if _NOT_SESSION.search(text[max(0, m.start() - 16):m.start()]):
                 continue

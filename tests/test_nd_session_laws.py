@@ -161,3 +161,28 @@ def test_prose_positions_index_the_text():
     text = "as amended by chapter 96, Session Laws 1969. The Board"
     (c,) = M.find_all(text)
     assert text[c.position:c.position + len(c.raw_text)] == c.raw_text == "chapter 96, Session Laws 1969"
+
+
+def test_chapter_of_the_year_session_laws():
+    """"chapter N of the YYYY Session Laws": the year sits between the chapter
+    and "Session Laws". A run of them is not read year-first from the middle."""
+    t = ("No mention was made in chapter 240 of the 1937 Session Laws, chapter 227 of the 1939 "
+         "Session Laws, chapter 372 of the 1941 Session Laws, nor in chapter 5 of the 1943 Session Laws.")
+    assert [c.normalized for c in M.find_all(t)] == [
+        "1937 N.D. Sess. Laws ch. 240", "1939 N.D. Sess. Laws ch. 227",
+        "1941 N.D. Sess. Laws ch. 372", "1943 N.D. Sess. Laws ch. 5"]
+    t = "Chapter 22, § 6, of the 1973 Session Laws, Chapter 1, § 5, of the 1975 Session Laws, and"
+    cs = M.find_all(t)
+    assert [(c.normalized, c.pinpoint) for c in cs] == [
+        ("1973 N.D. Sess. Laws ch. 22", "§ 6"), ("1975 N.D. Sess. Laws ch. 1", "§ 5")]
+    assert all(c.components["form"] == "prose" for c in cs)
+    assert all(t[c.position:c.position + len(c.raw_text)] == c.raw_text for c in cs)
+    t = "under chapter 154 of the 1947 Session Laws and chapters 161 and 162 of the 1949 Session Laws."
+    assert [c.normalized for c in M.find_all(t)] == [
+        "1947 N.D. Sess. Laws ch. 154", "1949 N.D. Sess. Laws ch. 161", "1949 N.D. Sess. Laws ch. 162"]
+    assert [c.normalized for c in M.find_all("chapter 14 of the 1944 Special Session Laws")] == [
+        "1944 N.D. Sess. Laws ch. 14"]
+    # another state's, by the same guard as the other prose forms
+    assert M.find_all("the Minnesota act, chapter 82 of the 1921 Session Laws") == []
+    # a code chapter is not a session-law chapter
+    assert M.find_all("chapter 28-32 of the 1943 Session Laws") == []
