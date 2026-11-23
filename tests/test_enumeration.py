@@ -503,7 +503,9 @@ def test_other_states_code_is_not_ndcc():
 
 def test_revised_code_of_1943_is_not_ndcc():
     # (corpus) "Sections 12–2216 and 12–2217 RCND 1943."
-    assert norms("Sections 12-2216 and 12-2217 RCND 1943.") == []
+    # ... and since the old codes are read (nd_old_codes), it is the 1943 code's
+    assert norms("Sections 12-2216 and 12-2217 RCND 1943.") == [
+        "N.D.R.C. 1943 § 12-2216", "N.D.R.C. 1943 § 12-2217"]
 
 
 def test_rules_followed_by_a_year_is_not_a_rule():
