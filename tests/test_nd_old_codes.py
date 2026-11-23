@@ -115,8 +115,9 @@ def test_a_state_named_nearby_does_not_make_the_code_foreign(text):
     "section 5630, Rev. Codes 1907, as amended",          # not a year North Dakota published a code
     "Section 28—27—02, NDRC 1943.",                       # a Century Code number under the old label
     "Section 65—05—12, N.D.R.C.1943, was amended",
-    "Sec. 42–02, NDRC 1943, governing",                   # a chapter
-    "Chapter 40–45, N.D.R.C. 1943",
+    "Sec. 42–02, NDRC 1943, governing",                   # a chapter cited as a section
+    "chapter 38, R. C. 1905, the cause",                  # restarts in each sub-code
+    "chapter 83 of the Penal Code, C.L. 1913",
     "N.D.C.C. § 12.1-32-01",
 ])
 def test_not_matched(text):
@@ -130,3 +131,27 @@ def test_scanner_keeps_the_neighbours():
     for want in ("N.D. Const. § 173", "N.D.R.C. 1943 § 11-1002", "N.D.C.C. § 28-32-19",
                  "1947 N.D. Sess. Laws ch. 176", "N.D.C.L. 1913 § 5841"):
         assert want in got, (want, got)
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("under Chapter 9–09, NDRC 1943. Plaintiff", ["N.D.R.C. 1943 ch. 9-09"]),
+    ("Chapter 40–45, N.D.R.C. 1943", ["N.D.R.C. 1943 ch. 40-45"]),
+    ("Chapter 26–23 NDRC 1943, being the State Bonding Fund Act", ["N.D.R.C. 1943 ch. 26-23"]),
+    ("set forth in Chapter 40–05 of the NDRC 1943. It had", ["N.D.R.C. 1943 ch. 40-05"]),
+    ("injunctions generally, Chap. 32–06, NDRC 1943. It is", ["N.D.R.C. 1943 ch. 32-06"]),
+    ("Act (chapter 28–32, R.C.N.D.1943, as amended by", ["N.D.R.C. 1943 ch. 28-32"]),
+    ("Chapters 24–01 and 24–07, NDRC 1943 as amended", ["N.D.R.C. 1943 ch. 24-01", "N.D.R.C. 1943 ch. 24-07"]),
+    ("under Chapter 40—49, Revised Code of 1943. Neither", ["N.D.R.C. 1943 ch. 40-49"]),
+    ("§ 1321a1, NDRC 1943, Chapter 15–51. The act", ["N.D.R.C. 1943 ch. 15-51"]),
+])
+def test_chapters_of_the_1943_code(text, expected):
+    cs = M.find_all(text)
+    assert [c.normalized for c in cs] == expected
+    assert all("section" not in c.components and c.components["chapter"] for c in cs)
+
+
+def test_chapter_and_section_side_by_side():
+    assert norms("Chapter 32–15, NDRC 1943, and Section 32–1501, NDRC 1943.") == [
+        "N.D.R.C. 1943 ch. 32-15", "N.D.R.C. 1943 § 32-1501"]
+    cs = M.find_all("provisions of Chapter 24-01, NDRC 1953 Supp., any party")
+    assert [(c.normalized, c.components["supplement"]) for c in cs] == [("N.D.R.C. 1943 ch. 24-01", "1953")]

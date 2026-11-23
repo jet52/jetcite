@@ -35,9 +35,16 @@ a range are not supplied. A supplement to the 1943 code ("1957 Supp. NDRC
 1943") keeps the 1943 normalized form and records the supplement's year in
 ``components["supplement"]``: the numbering is the 1943 code's.
 
+A chapter of the 1943 code ("Chapter 32-15, NDRC 1943") normalizes to
+``N.D.R.C. 1943 ch. 32-15``, with ``components["chapter"]`` and no
+``"section"``. Its number is title-dash-chapter, the shape the Century Code
+kept, so a Century Code chapter printed under the old label (as some opinions
+of the 1960s and 1970s do) is read as a 1943 chapter: the text alone does not
+tell them apart.
+
 Not read here: the separately numbered codes of 1877 (Civil Code, Code of
 Civil Procedure, ...), sub-code cites ("section 46, Civil Code 1887"), and
-chapter cites ("chapter 28-01, NDRC 1943").
+chapters of the codes before 1943, whose numbers restart in each sub-code.
 """
 
 import re
@@ -112,11 +119,19 @@ _LEADING_BARE = re.compile(rf'{_CODE}\s*,?\s*{_L43}')
 _TRAILING_BARE = re.compile(rf'(?<![\w.§{_DASH}]){_L43}{_TAIL}{_CODE}')
 # C.L.1913, § 157 (1925 Supp.): the section as the Supplement carries it
 _SUPP_AFTER = re.compile(r'\s*\(1925\s+Supp(?:lement|l?\.)\)')
+# Chapter 32-15, NDRC 1943 | Chapters 24-01 and 24-07, NDRC 1943 | Chapter 40-05 of the NDRC 1943
+_C43 = rf'\d{{1,2}}[{_DASH}]\d{{2}}(?![\d{_DASH}])(?!\.\d)'
+_CLIST = rf'(?P<list>{_C43}(?:(?:\s*,\s*(?:and\s+)?|\s+and\s+|\s+through\s+|\s+to\s+){_C43}){{0,7}})'
+_CHAP = r'(?<![A-Za-z])[Cc]h(?:ap(?:ter)?s?|s)?\.?\s*'
+_CH_TRAILING = re.compile(rf'{_CHAP}{_CLIST}\s*,?\s*(?:\[\*{{1,2}}\d+\]\s*)?(?:of\s+)?[(\[]?(?:the\s+)?{_CODE}')
+# NDRC 1943, Chapter 15-51
+_CH_LEADING = re.compile(rf'{_CODE}\s*,?\s*\(?\s*{_CHAP}{_CLIST}')
+_C43_RE = re.compile(_C43)
 _NAMES_ND = re.compile(r'N\.?\s?D\.?|North\s+Dakota')
 _FOREIGN_BEFORE = re.compile(rf'(?<![A-Za-z.])(?:{_STATES}|U\.\s?S\.|United\s+States)(?:\'s)?,?\s+(?:the\s+)?$')
 
 _NUM_RE = re.compile(_NUM)
-_ANY_YEAR = re.compile(r'1887|1895|1899|1905|1913|1925|1943')
+_ANY_YEAR = re.compile(r'1887|1895|1899|1905|1913|1925|19[45]\d')
 _IS43 = re.compile(rf'\d{{1,2}}[{_DASH}]\d{{4,5}}$')
 
 
@@ -176,12 +191,35 @@ class NDOldCodeMatcher(BaseMatcher):
         cands.sort(key=lambda c: (c[0].start(), c[1]))
         out: list[Citation] = []
         last_end = -1
+        chapters = sorted(list(_CH_TRAILING.finditer(text)) + list(_CH_LEADING.finditer(text)),
+                          key=lambda m: m.start())
+        for m in chapters:
+            prefix, key, supplement = _code_of(m)
+            if key != "ndrc1943":
+                continue
+            cands.append((m, 4))
+        cands.sort(key=lambda c: (c[0].start(), c[1]))
         for m, kind in cands:
             if m.start() < last_end:
                 continue
             prefix, key, supplement = _code_of(m)
             if kind == 1 and key == "ndcl1913" and _SUPP_AFTER.match(text, m.end()):
                 prefix, key, supplement = "N.D.C.L. Supp. 1925", "ndcl1925supp", "1925"
+            if kind == 4:
+                last_end = m.end()
+                base = m.start("list")
+                for i, n in enumerate(_C43_RE.finditer(m.group("list"))):
+                    chapter = re.sub(rf'[{_DASH}]', '-', n.group(0))
+                    out.append(Citation(
+                        raw_text=m.group(0),
+                        cite_type=CitationType.STATUTE,
+                        jurisdiction="nd",
+                        normalized=f"{prefix} ch. {chapter}",
+                        components={"code": key, "chapter": chapter, "supplement": supplement},
+                        sources=[],
+                        position=m.start() if i == 0 else base + n.start(),
+                    ))
+                continue
             is43 = key == "ndrc1943"
             # The number's shape must be the code's own: a 1943 section is
             # title-dash-number and no other code's is.
