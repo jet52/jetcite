@@ -11,6 +11,7 @@ class CitationType(Enum):
     COURT_RULE = "court_rule"
     REGULATION = "regulation"
     SESSION_LAW = "session_law"
+    JURY_INSTRUCTION = "jury_instruction"
 
 
 @dataclass
