@@ -537,6 +537,36 @@ def test_nd_rule_trailing_form_rejects_paragraph_marker_gap(text, expected):
 
 
 @pytest.mark.parametrize("text,expected", [
+    # the last component of a Century Code section or chapter is not a rule number
+    ("N.D.C.C. \u00a7 28-26-06(5), N.D.R.Civ.P. 3, applies.", ["N.D.R.Civ.P. 3"]),
+    ("under \u00a7 28-01-02, N.D.R.Civ.P. 49(a)", ["N.D.R.Civ.P. 49"]),
+    ("under \u00a7 28-01-02, N.D.R.Ev. 803(6)", ["N.D.R.Ev. 803"]),
+    ("NDCC 28\N{EN DASH}26\N{EN DASH}01, NDRCivP 4", ["N.D.R.Civ.P. 4"]),
+    ("under N.D.C.C. ch. 27-20.3. N.D.R.Juv.P. 2 applies", ["N.D.R.Juv.P. 2"]),
+    # nor is a number across a paragraph break (a pattern jury instruction's notes)
+    ("NDCC 32-03.2-02\n\nNDRCivP 49(a)", ["N.D.R.Civ.P. 49"]),
+    ("Witnesses at \u00a7 472.\n\nN.D.R.Evid. 503 authorizes", ["N.D.R.Ev. 503"]),
+    # nor a section of the Revised Code of 1943 ("N.D.Rev.Code" is not N.D.R.Ev.)
+    ("Section 32-1503, N.D.Rev.Code of 1943:", []),
+    ("Sec. 54\N{EN DASH}0126 ND Rev Code 1943 provides", []),
+    ("Section 32\N{EN DASH}3301, ND Revised Code 1943.", []),
+    # kept: a range of rules, the "NDRev" typo for NDREv, a cite ending a paragraph
+    ("Rules 26-37, N.D.R.Civ.P., govern discovery.", ["N.D.R.Civ.P. 37"]),
+    ("pursuant to Rule 201, NDRev, that", ["N.D.R.Ev. 201"]),
+    ("clearly erroneous. Rule 52, N.D.R.Civ.P.\n\nNext", ["N.D.R.Civ.P. 52"]),
+])
+def test_nd_rule_trailing_form_rejects_code_section_tails(text, expected):
+    """A trailing-form rule cite reads the number BEFORE the rule set, and a Century Code
+    section's last component, a number across a paragraph break, and an 1943 Revised Code
+    section ("N.D.Rev.Code") all sat there as phantoms (ND opinions, 2026-11-24: 8, 1 and 13
+    sites). Skipping one resumes at the rule set, so a leading-form cite it swallowed
+    survives."""
+    m = NDMatcher()
+    rules = [r for r in m.find_all(text) if "rule_set" in r.components]
+    assert [r.normalized for r in rules] == expected
+
+
+@pytest.mark.parametrize("text,expected", [
     # 3-part number, 2-part pattern: "3.1" is the tail of "8.3.1"
     ("Rule 8.3.1, N.D.R.Ct., applies.", ["N.D.R.Ct. 8.3.1"]),
     # 2-part number, 1-part pattern: "3" is the tail of "8.3"
