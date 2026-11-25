@@ -771,9 +771,18 @@ class NDMatcher(BaseMatcher):
                 position=m.start(),
             ))
 
+        # A chapter printed under the 1943 code's name ("Chapter 27-16, NDRC
+        # 1943") is that code's (nd_old_codes); only a cite that names the
+        # Century Code itself is still read here.
+        from jetcite.patterns.states.nd_old_codes import chapter_spans_1943
+        old_spans = chapter_spans_1943(text) if "19" in text else []
+
         for m in _NDCC_CHAPTER.finditer(text):
             title, title_dec = m.group(1), m.group(2)
             chapter, chapter_dec = m.group(3), m.group(4)
+            if old_spans and m.group(0)[:1] in "Cc" and any(
+                    s <= m.start(1) < e for s, e in old_spans):
+                continue
 
             title_full = f"{title}.{title_dec}" if title_dec else title
             chapter_full = f"{chapter}.{chapter_dec}" if chapter_dec else chapter

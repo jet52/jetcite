@@ -164,6 +164,18 @@ def _fits(m: re.Match) -> bool:
     return bool(_IS43.match(_NUM_RE.match(m.group("list")).group(0))) == (_code_of(m)[1] == "ndrc1943")
 
 
+def chapter_spans_1943(text: str) -> list[tuple[int, int]]:
+    """Spans of the chapter cites this module reads as the 1943 code's.
+
+    The Century Code matcher asks before it reads a bare "Chapter 27-16" as its
+    own: followed by "NDRC 1943" the chapter is the old code's, and a Century
+    Code chapter beside it would be a second authority the text never cites.
+    """
+    return [(m.start(), m.end())
+            for pat in (_CH_TRAILING, _CH_LEADING) for m in pat.finditer(text)
+            if _code_of(m)[1] == "ndrc1943"]
+
+
 class NDOldCodeMatcher(BaseMatcher):
     """Sections of the North Dakota and Dakota Territory codes of 1887-1943."""
 

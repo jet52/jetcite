@@ -155,3 +155,20 @@ def test_chapter_and_section_side_by_side():
         "N.D.R.C. 1943 ch. 32-15", "N.D.R.C. 1943 § 32-1501"]
     cs = M.find_all("provisions of Chapter 24-01, NDRC 1953 Supp., any party")
     assert [(c.normalized, c.components["supplement"]) for c in cs] == [("N.D.R.C. 1943 ch. 24-01", "1953")]
+
+
+def test_a_1943_chapter_is_not_also_a_century_code_chapter():
+    # (corpus) 180 opinions carried an N.D.C.C. chapter beside each of these
+    from jetcite import scan_text
+    for text in ("Chapter 27-16, NDRC 1943, upon proper cause shown",
+                 "chapter 32-15 of the Revised Code of 1943",
+                 "Chapters 24-01 and 24-07, NDRC 1943",
+                 "NDRC 1943, Chapter 15-51"):
+        norms = [c.normalized for c in scan_text(text, resolve=False)]
+        assert norms and all(n.startswith("N.D.R.C. 1943 ch. ") for n in norms), (text, norms)
+    # the Century Code named outright is still the Century Code's, and a bare
+    # chapter elsewhere in the same text is untouched
+    norms = [c.normalized for c in scan_text(
+        "Chapter 27-16, NDRC 1943, was carried into chapter 27-20 of the Century Code. N.D.C.C. ch. 27-16.",
+        resolve=False)]
+    assert norms == ["N.D.R.C. 1943 ch. 27-16", "N.D.C.C. ch. 27-20", "N.D.C.C. ch. 27-16"], norms
