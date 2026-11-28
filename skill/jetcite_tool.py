@@ -32,17 +32,15 @@ def cmd_lookup(args):
     text = args.citation
     if text == "-":
         text = sys.stdin.read().strip()
-    cite = lookup(text)
+    cite = lookup(text, prefer=args.prefer)
     if cite is None:
         print(f"No citation pattern matched: {text}", file=sys.stderr)
         sys.exit(1)
     if args.json:
         print(json.dumps(cite.to_dict(), indent=2))
     else:
-        if cite.sources:
-            print(cite.sources[0].url)
-        else:
-            print(cite.normalized)
+        url = cite.link_url or (cite.sources[0].url if cite.sources else None)
+        print(url or cite.normalized)
 
 
 def cmd_scan(args):
@@ -50,12 +48,13 @@ def cmd_scan(args):
         text = sys.stdin.read()
     else:
         text = Path(args.file).read_text()
-    citations = scan_text(text)
+    citations = scan_text(text, prefer=args.prefer)
     if args.json:
         print(json.dumps([c.to_dict() for c in citations], indent=2))
     else:
         for cite in citations:
-            url = cite.sources[0].url if cite.sources else "(no URL)"
+            url = cite.link_url or (
+                cite.sources[0].url if cite.sources else "(no URL)")
             print(f"{cite.normalized}\t{url}")
 
 
@@ -73,11 +72,17 @@ def main():
     p_lookup = sub.add_parser("lookup", help="Look up a single citation")
     p_lookup.add_argument("citation", help="Citation text (or '-' for stdin)")
     p_lookup.add_argument("--json", action="store_true", help="Output as JSON")
+    p_lookup.add_argument("--prefer", choices=["official", "ndlaw"], default=None,
+                          help="Link ND authority to its official site (default) "
+                               "or ndlaw.org; defaults to $JETCITE_PREFER")
     p_lookup.set_defaults(func=cmd_lookup)
 
     p_scan = sub.add_parser("scan", help="Scan a document for all citations")
     p_scan.add_argument("file", help="File path to scan (or '-' for stdin)")
     p_scan.add_argument("--json", action="store_true", help="Output as JSON")
+    p_scan.add_argument("--prefer", choices=["official", "ndlaw"], default=None,
+                        help="Link ND authority to its official site (default) "
+                             "or ndlaw.org; defaults to $JETCITE_PREFER")
     p_scan.set_defaults(func=cmd_scan)
 
     args = parser.parse_args()

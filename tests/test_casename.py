@@ -49,6 +49,14 @@ def test_leading_signal_stripped():
                     "100 N.W. 1084") == "Lough v. White"
 
 
+def test_contrast_and_see_generally_stripped():
+    # prose signals: the name feeds ndlaw.org links (jetcite.links)
+    assert _name_at("Contrast Wootan v. State, 994 N.W.2d 347.",
+                    "994 N.W.2d 347") == "Wootan v. State"
+    assert _name_at("See generally Lough v. White, 100 N.W. 1084.",
+                    "100 N.W. 1084") == "Lough v. White"
+
+
 # ── procedural captions ───────────────────────────────────────────
 
 def test_procedural_in_re_estate():

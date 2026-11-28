@@ -40,7 +40,36 @@ jetcite --verify "42 U.S.C. § 1983"    # HTTP-check the URL
 jetcite --open "2024 ND 156"            # open in browser
 jetcite --from-clipboard                 # read from clipboard (cross-platform)
 jetcite --all-sources "2024 ND 156"     # show all URLs, not just primary
+jetcite --prefer ndlaw "2024 ND 156, ¶ 12"  # link to ndlaw.org instead
 ```
+
+### Link preference: official sites or ndlaw.org
+
+Every North Dakota authority that [ndlaw.org](https://ndlaw.org) serves also
+gets an `ndlaw` source: a `https://ndlaw.org/cite/{citation}` link, which
+ndlaw.org resolves to the authority's page, scrolled to the pinpoint
+(`¶ 17`, a reporter page, a rule subdivision) where the page has that
+anchor. Each ndlaw.org page links to the official source.
+
+Which link a reader gets is `Citation.link_url`, set by the preference:
+
+| Preference | `link_url` for ND opinions, court rules, N.D.C.C., N.D.A.C. |
+|---|---|
+| `official` (default) | the official site (ndcourts.gov, ndlegis.gov), as before |
+| `ndlaw` | the ndlaw.org resolver link, with this occurrence's pinpoint |
+
+Set it per call (`scan_text(text, prefer="ndlaw")`, `lookup(...,
+prefer="ndlaw")`, `--prefer ndlaw`) or for every jetcite consumer on a
+machine with `JETCITE_PREFER=ndlaw` in the environment; an explicit argument
+wins. The N.D. Constitution keeps its ndconst.org link and session laws their
+ndlegis.gov volume PDF under either preference. A North Western Reporter cite
+gets an ndlaw.org link only on evidence that it is North Dakota authority (a
+parallel ND cite, or a `(N.D. 1994)` parenthetical).
+
+The preference never changes `sources[0]` (the legacy dict's `url`): that
+stays the official, fetchable URL. ndlaw.org links are link-only: jetcite
+never fetches or verifies them (ndlaw.org's robots.txt disallows automated
+fetching), and consumers that store `sources[0]` see no change.
 
 ## Python API
 
@@ -392,6 +421,7 @@ North Dakota authority, use the ndlaw MCP server (`https://ndlaw.org/mcp`).
 | law.cornell.edu (LII) | Federal rule pages | FRCP, FRE, etc. |
 | supreme.justia.com | Opinion pages | U.S. Reports |
 | courtlistener.com | `/c/` citation redirect URLs | All case reporters (fallback) |
+| ndlaw.org | `/cite/{citation}` resolver links (link-only, never fetched) | ND opinions, rules, NDCC, NDAC, Constitution, session laws; `link_url` under `prefer="ndlaw"` |
 
 ## Contributing
 

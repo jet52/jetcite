@@ -1,6 +1,6 @@
 ---
 name: jetcite
-version: 3.0.0
+version: 3.1.0
 description: Parse American legal citations from text and generate URLs to official government sources.
 ---
 
@@ -66,5 +66,9 @@ Each citation includes:
 - `cite_type` — case, statute, constitution, court_rule, regulation
 - `jurisdiction` — "us", "nd", etc.
 - `normalized` — canonical Bluebook form
-- `sources` — list of `{name, url}` objects
+- `sources` — list of `{name, url}` objects; `sources[0]` is the official, fetchable URL
+- `link_url` — the URL to show a reader: the official one by default, or the
+  ndlaw.org resolver link (with the pinpoint) for ND opinions, court rules,
+  N.D.C.C., and N.D.A.C. when `--prefer ndlaw` or `JETCITE_PREFER=ndlaw` is set.
+  ndlaw.org links are link-only: never fetch them.
 - `parallel_cites` — related citations for the same case
